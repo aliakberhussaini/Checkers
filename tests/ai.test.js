@@ -382,6 +382,24 @@ function checkShape(ins, label) {
     JSON.stringify(mid.execute));
 }
 
+// --- formatMove/formatMoveKey: human-readable square notation for the
+// Monitor live-panel text (a-h files, 1-8 ranks), independent of moveKey's
+// raw coordinate format which stays as an internal book/map key. ---
+{
+  const simple = { from: [5, 2], path: [[4, 3]], captures: [] };
+  check('formatMove: simple move uses square notation', AI.formatMove(simple) === 'c3→d4',
+    AI.formatMove(simple));
+  check('formatMoveKey: same move via its moveKey string matches formatMove',
+    AI.formatMoveKey(AI.moveKey(simple)) === AI.formatMove(simple),
+    AI.formatMoveKey(AI.moveKey(simple)) + ' vs ' + AI.formatMove(simple));
+
+  const doubleJump = { from: [3, 4], path: [[5, 6], [7, 4]], captures: [[4, 5], [6, 5]] };
+  check('formatMove: multi-jump chains squares with arrows', AI.formatMove(doubleJump) === 'e5→g3→e1',
+    AI.formatMove(doubleJump));
+  check('formatMove: never contains a raw comma-coordinate (unreadable to a player)',
+    AI.formatMove(doubleJump).indexOf(',') === -1, AI.formatMove(doubleJump));
+}
+
 // ---------------------------------------------------------------
 console.log('');
 console.log('ai.test.js: ' + passCount + ' passed, ' + failCount + ' failed');

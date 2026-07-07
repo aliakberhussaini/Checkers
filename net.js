@@ -53,6 +53,27 @@
     return false;
   }
 
+  /* Maps PeerJS's internal error types to a message a player can act on,
+   * instead of surfacing raw strings like "Negotiation of connection to
+   * neonckr-4085 failed." PeerJS error types: https://peerjs.com/docs#peeron-error
+   */
+  function friendlyError(err) {
+    var type = err && err.type;
+    if (type === 'unavailable-id') return 'that code is already in use — try again';
+    if (type === 'peer-unavailable') return 'no game found with that code';
+    if (type === 'webrtc') {
+      return "couldn't establish a direct connection — this can happen on some " +
+        'networks (corporate Wi-Fi, VPNs, strict firewalls). Try a different ' +
+        'network, or have the other player generate the code instead';
+    }
+    if (type === 'network' || type === 'socket-error' || type === 'socket-closed' ||
+        type === 'server-error' || type === 'disconnected') {
+      return "couldn't reach the connection service — check your internet " +
+        'connection and try again';
+    }
+    return String((err && err.message) || err);
+  }
+
   /* Thin PeerJS wrapper. Not unit-tested (needs a live browser + network);
    * covered by manual two-browser verification instead. Every handler in
    * `handlers` is optional: onOpen(theirName), onPeerMessage(msg),
@@ -79,7 +100,7 @@
     });
     conn.on('close', function () { if (self.handlers.onPeerClose) self.handlers.onPeerClose(); });
     conn.on('error', function (err) {
-      if (self.handlers.onError) self.handlers.onError(String((err && err.message) || err));
+      if (self.handlers.onError) self.handlers.onError(friendlyError(err));
     });
   };
 
@@ -96,10 +117,7 @@
     this.peer = peer;
     peer.on('connection', function (conn) { self._wireConn(conn); });
     peer.on('error', function (err) {
-      var msg = (err && err.type === 'unavailable-id')
-        ? 'that code is already in use — try again'
-        : String((err && err.message) || err);
-      if (self.handlers.onError) self.handlers.onError(msg);
+      if (self.handlers.onError) self.handlers.onError(friendlyError(err));
     });
   };
 
@@ -113,10 +131,7 @@
       self._wireConn(conn);
     });
     peer.on('error', function (err) {
-      var msg = (err && err.type === 'peer-unavailable')
-        ? 'no game found with that code'
-        : String((err && err.message) || err);
-      if (self.handlers.onError) self.handlers.onError(msg);
+      if (self.handlers.onError) self.handlers.onError(friendlyError(err));
     });
   };
 
@@ -140,6 +155,7 @@
     isValidCode: isValidCode,
     sanitizeName: sanitizeName,
     isLegalWireMove: isLegalWireMove,
+    friendlyError: friendlyError,
     Session: Session
   };
 

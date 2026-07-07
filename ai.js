@@ -83,6 +83,22 @@
     return move.from.join(',') + '>' + move.path.map(function (p) { return p.join(','); }).join('>');
   }
 
+  // Display-only square notation (a-h files, 1-8 ranks) for the Monitor's
+  // human-readable activity log. Kept separate from moveKey, whose raw
+  // coordinate format is relied on elsewhere as an internal map key.
+  var FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+  function squareName(pos) { return FILES[pos[1]] + (8 - pos[0]); }
+  function formatMove(move) {
+    return squareName(move.from) + move.path.map(function (p) { return '→' + squareName(p); }).join('');
+  }
+  // Same, but starting from a moveKey string (opening-book entries are keyed
+  // by moveKey, not the original move object) rather than a move object.
+  function formatMoveKey(mk) {
+    return mk.split('>').map(function (seg) {
+      return squareName(seg.split(',').map(Number));
+    }).join('→');
+  }
+
   function opposite(side) {
     return side === Engine.RED ? Engine.BLACK : Engine.RED;
   }
@@ -496,7 +512,7 @@
         this.kb.read('game').openings.push({ h: Engine.hash(before), key: moveKey(move), by: 'player' });
       }
 
-      let txt = 'Player: ' + moveKey(move);
+      let txt = 'Player: ' + formatMove(move);
       if (move.captures.length) txt += ' (x' + move.captures.length + ')';
       if (exposed) txt += ' [exposes a piece]';
       if (quality.blunder) txt += ' [blunder]';
@@ -511,7 +527,7 @@
       if (before.ply < TUNING.bookPlies) {
         this.kb.read('game').openings.push({ h: Engine.hash(before), key: moveKey(move), by: 'ai' });
       }
-      this.kb.pushEvent('AI: ' + moveKey(move) + (move.captures.length ? ' (x' + move.captures.length + ')' : ''));
+      this.kb.pushEvent('AI: ' + formatMove(move) + (move.captures.length ? ' (x' + move.captures.length + ')' : ''));
       this.kb.save(); // persist after each AI move
     }
 
@@ -654,7 +670,7 @@
             if (bias !== 0) {
               strategy.rootBias[keys[i]] = bias;
               bookUsed = true;
-              rationale.push('Opening book: line ' + keys[i] + ' scored ' +
+              rationale.push('Opening book: line ' + formatMoveKey(keys[i]) + ' scored ' +
                 s.w + '-' + s.l + '-' + s.d + ' vs this player -> bias ' +
                 (bias > 0 ? '+' : '') + bias + '.');
             }
@@ -677,7 +693,7 @@
           if (bias !== 0) {
             strategy.rootBias[mk] = bias;
             bookUsed = true;
-            rationale.push('Opening book: position after ' + mk + ' scored ' +
+            rationale.push('Opening book: position after ' + formatMoveKey(mk) + ' scored ' +
               succ.outcomes.w + '-' + succ.outcomes.l + '-' + succ.outcomes.d +
               ' vs this player -> bias ' + (bias > 0 ? '+' : '') + bias + '.');
           }
@@ -820,6 +836,8 @@
     Executor: Executor,
     MemoryStorage: MemoryStorage,
     moveKey: moveKey,
+    formatMove: formatMove,
+    formatMoveKey: formatMoveKey,
     DEFAULT_WEIGHTS: DEFAULT_WEIGHTS,
     TUNING: TUNING
   };
