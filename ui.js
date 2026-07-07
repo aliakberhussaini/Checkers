@@ -30,6 +30,7 @@
   var oppName = 'Opponent';
   var netSession = null; // NetCheckers.Session while a multiplayer link is live/pending
   var over = false, winnerSide = null, gameEndReported = false;
+  var paused = false;
   var thinking = false;
   var committing = false; // a human move is being handed to the agent/engine
   var selected = null;   // [r,c] currently selected / chain head
@@ -155,7 +156,8 @@
       'opp-name-label', 'opp-tray-label', 'opp-took-label', 'adapt-stat-block', 'agent-panel',
       'mp-panel', 'mp-conn-dot', 'mp-my-name', 'mp-opp-name', 'btn-mp-leave', 'btn-undo',
       'mp-overlay', 'mp-name-step', 'mp-generate-step', 'mp-join-step', 'mp-name-input',
-      'mp-code-display', 'mp-generate-status', 'mp-code-input', 'mp-join-status'];
+      'mp-code-display', 'mp-generate-status', 'mp-code-input', 'mp-join-status',
+      'btn-pause', 'pause-overlay', 'pause-sub', 'btn-resume', 'btn-quit'];
     for (var i = 0; i < ids.length; i++) els[ids[i]] = $(ids[i]);
 
     if (!E) {
@@ -213,6 +215,10 @@
     els['mp-code-input'].addEventListener('input', function () {
       this.value = this.value.replace(/[^0-9]/g, '').slice(0, 4);
     });
+
+    els['btn-pause'].addEventListener('click', openPause);
+    els['btn-resume'].addEventListener('click', resumeGame);
+    els['btn-quit'].addEventListener('click', quitGame);
 
     setInterval(onTimerTick, 1000);
 
@@ -336,6 +342,7 @@
 
   function resetVisualState() {
     over = false; winnerSide = null; gameEndReported = false;
+    paused = false;
     thinking = false; committing = false;
     selected = null; candidates = []; stepIndex = 0; mustContinue = false;
     trays = { human: [], ai: [] };
@@ -350,6 +357,7 @@
     for (var i = 0; i < chips.length; i++) chips[i].classList.remove('active');
     rebuildPieceLayer();
     els['over-overlay'].classList.add('hidden');
+    els['pause-overlay'].classList.add('hidden');
   }
 
   /* If a decided game is being abandoned before its end was reported (e.g. New
@@ -424,7 +432,7 @@
   }
   function undo() {
     if (mode !== 'solo') return; // undo would desync the two peers' replicated state
-    if (screen !== 'play' || over || thinking || committing || mustContinue || !history.length) return;
+    if (screen !== 'play' || over || paused || thinking || committing || mustContinue || !history.length) return;
     if (!state || state.turn !== mySide) return;
     generation++; clearTimers();
     var snap = history.pop();
@@ -441,7 +449,7 @@
   }
 
   function onCell(r, c) {
-    if (screen !== 'play' || over || thinking || committing || !state || state.turn !== mySide) return;
+    if (screen !== 'play' || over || paused || thinking || committing || !state || state.turn !== mySide) return;
     ensureAudio();
 
     if (selected) {
@@ -540,7 +548,7 @@
 
   /* Human ran out of time: play a random legal move (or continuation). */
   function autoMoveHuman() {
-    if (screen !== 'play' || over || thinking || committing || state.turn !== mySide) return;
+    if (screen !== 'play' || over || paused || thinking || committing || state.turn !== mySide) return;
     var pool, offset;
     if (mustContinue && candidates.length) {
       pool = candidates; offset = stepIndex;
@@ -857,11 +865,13 @@
 
   /* ------------------------------------------------------------ game end */
 
-  function finishGame(w) {
+  function finishGame(w, quit) {
     over = true;
     winnerSide = w; // 'R' | 'B' | 'draw'
     endAt = Date.now();
     thinking = false;
+    paused = false;
+    els['pause-overlay'].classList.add('hidden');
     if (!gameEndReported) {
       gameEndReported = true;
       // Easy-mode games are handicapped (random AI moves); folding their
@@ -887,7 +897,9 @@
     } else {
       headline.textContent = 'Defeated';
       headline.classList.add('lose');
-      els['result-sub'].textContent = (mode === 'mp') ? (oppName + ' won this one.') : 'The agent adapted to you.';
+      els['result-sub'].textContent = quit
+        ? 'You quit the match — it counts as a loss.'
+        : ((mode === 'mp') ? (oppName + ' won this one.') : 'The agent adapted to you.');
       sfx('lose');
     }
     els['stat-moves'].textContent = String(moveCount);
@@ -903,7 +915,7 @@
   /* ------------------------------------------------------------ hint / timer */
 
   function showHint() {
-    if (screen !== 'play' || over || thinking || committing || mustContinue || state.turn !== mySide) return;
+    if (screen !== 'play' || over || paused || thinking || committing || mustContinue || state.turn !== mySide) return;
     ensureAudio();
     var legal = E.legalMoves(state);
     if (!legal.length) return;
@@ -924,7 +936,7 @@
   }
 
   function onTimerTick() {
-    if (screen !== 'play' || over) return;
+    if (screen !== 'play' || over || paused) return;
     var t = timeLeft - 1;
     if (t <= 5 && t >= 0) sfx('tick');
     if (t < 0) {
@@ -943,6 +955,57 @@
     els['timer-bar'].classList.toggle('low', low);
     els['timer-num'].classList.toggle('low', low);
     els['timer-num'].textContent = (timeLeft < 0 ? 0 : timeLeft) + 's';
+  }
+
+  /* ------------------------------------------------------------ pause / quit */
+
+  // Pausing is allowed at any point during an active game, regardless of
+  // whose turn it is — it only freezes THIS browser's timer/input, never the
+  // shared game state, so there is nothing turn-sensitive to protect here.
+  function canPause() {
+    return screen === 'play' && !over && !paused;
+  }
+
+  function openPause() {
+    if (!canPause()) return;
+    ensureAudio();
+    paused = true;
+    var sub;
+    if (mode === 'mp' && state.turn !== mySide) {
+      sub = 'Your opponent can still move while you are paused.';
+    } else if (mode === 'solo' && state.turn !== mySide) {
+      sub = 'The agent will finish its move in the background.';
+    } else {
+      sub = 'Your timer is stopped.';
+    }
+    els['pause-sub'].textContent = sub;
+    els['pause-overlay'].classList.remove('hidden');
+    sfx('select');
+    render();
+  }
+
+  function resumeGame() {
+    if (!paused) return;
+    paused = false;
+    els['pause-overlay'].classList.add('hidden');
+    sfx('select');
+    render();
+  }
+
+  function quitGame() {
+    if (screen !== 'play' || over) return;
+    var confirmMsg = (mode === 'mp')
+      ? 'Quit this match? Your opponent will be notified and the match ends immediately.'
+      : 'Quit this game? It will count as a loss.';
+    if (!window.confirm(confirmMsg)) return;
+    els['pause-overlay'].classList.add('hidden');
+    paused = false;
+    if (mode === 'mp') {
+      leaveMultiplayer();
+    } else {
+      var loserSide = (mySide === E.RED) ? E.BLACK : E.RED;
+      finishGame(loserSide, true);
+    }
   }
 
   /* ------------------------------------------------------------ adaptation card */
@@ -1066,14 +1129,18 @@
   function render() {
     renderTimer();
 
-    var humanTurn = screen === 'play' && !over && !thinking && !committing && state.turn === mySide;
+    var humanTurn = screen === 'play' && !over && !paused && !thinking && !committing && state.turn === mySide;
+    els['btn-pause'].disabled = !canPause();
 
     // Status card
     var dot = els['turn-dot'];
     // While thinking the engine state may already hold the applied AI move
     // (turn flipped back to mySide mid-animation); the dot stays on the agent.
     dot.classList.toggle('ai', !over && (thinking || state.turn !== mySide));
-    if (thinking) {
+    if (paused) {
+      els['status-main'].textContent = 'Paused';
+      els['status-sub'].textContent = 'Tap Resume to continue';
+    } else if (thinking) {
       els['status-main'].textContent = 'Agent thinking…';
       els['status-sub'].textContent = 'MAPE-K · loop';
     } else if (over) {

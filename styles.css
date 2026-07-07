@@ -432,6 +432,12 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 #result-headline.draw { color: var(--muted); }
 #result-sub { font-size: 13px; color: var(--muted); margin-top: 8px; }
 
+.pause-title {
+  font-size: 28px; font-weight: 700; letter-spacing: .5px; color: var(--accent);
+  text-shadow: 0 0 20px var(--piece-p1-glow); margin-bottom: 8px;
+}
+.pause-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+
 .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0; }
 .result-stat {
   background: var(--surface-2); border: 1px solid var(--border);
@@ -447,6 +453,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   text-transform: uppercase; margin-top: 2px;
 }
 .result-actions { display: flex; gap: 10px; }
+.result-actions .btn-danger { width: auto; flex: 1; }
 .btn-secondary {
   flex: 1; background: var(--surface-2); color: var(--text);
   border: 1px solid var(--border); border-radius: 12px; padding: 12px;
