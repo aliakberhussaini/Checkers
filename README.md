@@ -1,10 +1,16 @@
-# Checkers vs. MAPE-K Agent
+# Neon Checkers — vs. a MAPE-K Agent, or vs. a Friend
 
-A complete, offline, zero-dependency browser checkers game (American checkers /
-English draughts). You play **Red**; the opponent playing **Black** is an
-autonomic agent built on IBM's classic **MAPE-K loop** (Kephart & Chess, 2003)
-that learns *you* across games and adapts its strategy to beat you — always at
-full strength, never handicapped.
+A complete browser checkers game (American checkers / English draughts) in the
+"Neon Grid" theme. Play solo against an autonomic agent built on IBM's classic
+**MAPE-K loop** (Kephart & Chess, 2003) that learns *you* across games and
+adapts its strategy to beat you — always at full strength, never handicapped —
+or play a friend head-to-head over a 4-digit code (see **Multiplayer** below).
+
+Solo play (`engine.js` + `ai.js`) is 100% offline and has zero external
+dependencies. Multiplayer additionally needs a network connection and the
+vendored [PeerJS](https://peerjs.com) library (`vendor/peerjs.min.js`, fetched
+once from the npm registry and committed into this repo) — see the
+**Multiplayer** section for why that's the one exception to "zero dependencies".
 
 ## How to run
 
@@ -30,6 +36,7 @@ node tests/engine.test.js       # rules engine: moves, jumps, promotion, win/dra
 node tests/ai.test.js           # MAPE-K learning + adaptation requirements
 node tests/selfplay.js          # two agents play 3 full games against each other
 node tests/integration.test.js  # scripted greedy human vs one persistent agent, 5 games
+node tests/net.test.js          # multiplayer: code/name validation, wire-move security check
 ```
 
 Each test is a plain Node script that prints `PASS`/`FAIL` per case and exits
@@ -38,16 +45,19 @@ non-zero on any failure.
 ## Architecture map
 
 ```
-index.html            page shell; loads styles.css then engine.js -> ai.js -> ui.js
-styles.css            "refreshing" aqua/mint theme, frosted-glass panels, animations
+index.html            page shell; loads engine.js -> ai.js -> vendor/peerjs.min.js -> net.js -> ui.js
+styles.css            "Neon Grid" theme, frosted-glass panels, animations
 engine.js             global CheckersEngine — pure rules engine, no AI, no DOM
 ai.js                 global CheckersAI — the MAPE-K agent (five explicit classes)
-ui.js                 board rendering, input, animation, MAPE-K live panel
+net.js                global NetCheckers — multiplayer code/name validation + PeerJS wrapper
+vendor/peerjs.min.js  vendored third-party library (WebRTC signaling), not authored here
+ui.js                 board rendering, input, animation, MAPE-K live panel, multiplayer flow
 tests/
   engine.test.js      engine unit tests
   ai.test.js          agent learning/adaptation tests
   selfplay.js         agent-vs-agent soak test
   integration.test.js full-system test driving the exact UI event sequence
+  net.test.js         multiplayer pure-logic tests (code/name validation, wire-move security)
 ```
 
 - **engine.js** exposes `CheckersEngine`: `initialState()`, `legalMoves(state)`
@@ -116,6 +126,50 @@ position → Analyzer refreshes the profile → Planner refreshes the strategy �
 Executor searches under that strategy → the chosen move (and updated
 knowledge) come back out. The right-hand panel in the UI shows all five parts
 live.
+
+## Multiplayer
+
+Click **Multiplayer** on the title screen instead of **Play vs Agent**. Enter
+a display name, then either:
+
+- **Generate a code** — get a 4-digit code, share it with a friend any way you
+  like (text, chat, voice). Your browser waits for them to connect.
+- **I have a code** — enter the 4-digit code someone shared with you.
+
+Once connected, the code's generator plays Red (moves first) and the joiner
+plays Black — but on-screen, each player's own pieces always render in "your"
+color (cyan) and the opponent's in "theirs" (violet), the same way chess
+sites keep your own pieces visually consistent regardless of which side
+you're assigned. **The board is not flipped** — both players see the same
+fixed orientation (row 1 at the bottom, same file/rank labels).
+
+A multiplayer match never touches the MAPE-K agent's knowledge — there is no
+agent in this mode, so playing a friend never mixes into (or is affected by)
+what the agent has learned about you from solo play. **Undo is disabled** in
+multiplayer (it would desync the two browsers' replicated game state); Hint
+still works as a personal aid. The turn timer, capture rules, and animations
+are identical to solo play.
+
+**Why this needs the network (unlike solo play):** two browsers that don't
+know each other's address inherently need *some* rendezvous point to connect
+— the actual moves then travel directly peer-to-peer over a native WebRTC
+data channel (no library needed for that part). We use [PeerJS](https://peerjs.com)'s
+free public broker purely to turn the 4-digit code into that first
+connection; once connected, the broker is no longer involved. The PeerJS
+client library is vendored into this repo (`vendor/peerjs.min.js`, pulled
+from the npm registry, not a CDN) rather than authored from scratch — WebRTC
+signaling is a solved problem and reimplementing it wasn't warranted here.
+
+Every incoming move is re-validated against the real rules engine
+(`Net.isLegalWireMove`, see `net.js` and `tests/net.test.js`) before it's
+ever applied — a malformed or fabricated move from a hostile or buggy peer is
+silently dropped, never trusted.
+
+**Known limitations:** a 4-digit code is a shared namespace of only 10,000
+values on PeerJS's public broker — collisions with unrelated PeerJS users
+elsewhere are unlikely but not impossible for a casual feature like this.
+There's no reconnect-after-drop; if a peer disconnects mid-game the other
+side sees "Opponent disconnected" and the match ends.
 
 ## Where knowledge lives, and how to reset it
 

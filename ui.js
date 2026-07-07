@@ -12,6 +12,7 @@
 
   var E = (typeof window !== 'undefined') ? window.CheckersEngine : null;
   var AIRoot = (typeof window !== 'undefined') ? window.CheckersAI : null;
+  var Net = (typeof window !== 'undefined') ? window.NetCheckers : null;
 
   var TURN_TIME = 30;
   var AI_STEP_MS = 300;
@@ -23,6 +24,11 @@
 
   var state = null;      // authoritative engine state
   var screen = 'title';  // 'title' | 'play'
+  var mode = 'solo';     // 'solo' (vs agent) | 'mp' (vs a networked human)
+  var mySide = null;     // E.RED or E.BLACK — which side THIS browser plays
+  var mpName = 'Player'; // this player's display name, persisted
+  var oppName = 'Opponent';
+  var netSession = null; // NetCheckers.Session while a multiplayer link is live/pending
   var over = false, winnerSide = null, gameEndReported = false;
   var thinking = false;
   var committing = false; // a human move is being handed to the agent/engine
@@ -88,11 +94,16 @@
         muted = !!p.muted;
         colorblind = !!p.colorblind;
         if (p.difficulty === 'easy' || p.difficulty === 'hard' || p.difficulty === 'adaptive') difficulty = p.difficulty;
+        if (typeof p.mpName === 'string' && p.mpName) mpName = p.mpName;
       }
     } catch (err) { /* defaults stand */ }
   }
   function savePrefs() {
-    try { localStorage.setItem(PREFS_KEY, JSON.stringify({ muted: muted, colorblind: colorblind, difficulty: difficulty })); } catch (err) {}
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify({
+        muted: muted, colorblind: colorblind, difficulty: difficulty, mpName: mpName
+      }));
+    } catch (err) {}
   }
 
   /* ------------------------------------------------------------ audio */
@@ -140,7 +151,11 @@
       'title-overlay', 'title-brain', 'over-overlay', 'result-headline', 'result-sub', 'stat-moves',
       'stat-duration', 'stat-you-final', 'stat-agent-final', 'stat-adapt', 'settings-overlay',
       'diff-row', 'diff-note', 'btn-sound-toggle', 'btn-cb-toggle', 'icon-sound-on', 'icon-sound-off', 'app',
-      'brain-draws', 'live-monitor', 'live-analyze', 'live-plan', 'live-execute', 'live-knowledge'];
+      'brain-draws', 'live-monitor', 'live-analyze', 'live-plan', 'live-execute', 'live-knowledge',
+      'opp-name-label', 'opp-tray-label', 'opp-took-label', 'adapt-stat-block', 'agent-panel',
+      'mp-panel', 'mp-conn-dot', 'mp-my-name', 'mp-opp-name', 'btn-mp-leave', 'btn-undo',
+      'mp-overlay', 'mp-name-step', 'mp-generate-step', 'mp-join-step', 'mp-name-input',
+      'mp-code-display', 'mp-generate-status', 'mp-code-input', 'mp-join-status'];
     for (var i = 0; i < ids.length; i++) els[ids[i]] = $(ids[i]);
 
     if (!E) {
@@ -159,11 +174,19 @@
     buildBoard();
 
     $('btn-start').addEventListener('click', function () { ensureAudio(); startGame(); });
-    $('btn-new').addEventListener('click', function () { ensureAudio(); newGame(); });
-    $('btn-rematch').addEventListener('click', function () { ensureAudio(); newGame(); });
-    $('btn-home').addEventListener('click', goTitle);
+    $('btn-new').addEventListener('click', function () {
+      ensureAudio();
+      if (mode === 'mp' && screen === 'play') leaveMultiplayer(); else newGame();
+    });
+    $('btn-rematch').addEventListener('click', function () {
+      ensureAudio();
+      if (mode === 'mp') startMultiplayerRematch(true); else newGame();
+    });
+    $('btn-home').addEventListener('click', function () {
+      if (mode === 'mp') leaveMultiplayer(); else goTitle();
+    });
     $('btn-hint').addEventListener('click', showHint);
-    $('btn-undo').addEventListener('click', undo);
+    els['btn-undo'].addEventListener('click', undo);
     $('btn-sound').addEventListener('click', toggleMute);
     $('btn-sound-toggle').addEventListener('click', toggleMute);
     $('btn-cb-toggle').addEventListener('click', toggleColorblind);
@@ -173,6 +196,22 @@
     els['diff-row'].addEventListener('click', function (ev) {
       var chip = ev.target.closest('.diff-chip');
       if (chip) setDifficulty(chip.getAttribute('data-diff'));
+    });
+
+    $('btn-multiplayer').addEventListener('click', openMultiplayerModal);
+    $('btn-close-mp').addEventListener('click', closeMultiplayerModal);
+    $('btn-mp-choose-generate').addEventListener('click', mpGenerateCode);
+    $('btn-mp-choose-join').addEventListener('click', function () {
+      els['mp-join-status'].textContent = '';
+      els['mp-code-input'].value = '';
+      showMpStep('join');
+    });
+    $('btn-mp-back-1').addEventListener('click', function () { cancelNetSession(); showMpStep('name'); });
+    $('btn-mp-back-2').addEventListener('click', function () { showMpStep('name'); });
+    $('btn-mp-connect').addEventListener('click', mpConnectWithCode);
+    els['btn-mp-leave'].addEventListener('click', leaveMultiplayer);
+    els['mp-code-input'].addEventListener('input', function () {
+      this.value = this.value.replace(/[^0-9]/g, '').slice(0, 4);
     });
 
     setInterval(onTimerTick, 1000);
@@ -227,7 +266,11 @@
     var ring = document.createElement('div');
     ring.className = 'movable-ring hidden';
     var disc = document.createElement('div');
-    disc.className = 'disc ' + (cellData.p === E.RED ? 'p1' : 'p2');
+    // p1 (cyan) = mine, p2 (violet) = the other side — relative to mySide so
+    // a multiplayer joiner (playing Black) still sees their own pieces as
+    // "mine". Board orientation itself is not flipped; both peers share one
+    // fixed (row, col) coordinate system.
+    disc.className = 'disc ' + (cellData.p === mySide ? 'p1' : 'p2');
     var kingRing = document.createElement('div');
     kingRing.className = 'king-ring';
     var mark = document.createElement('div');
@@ -326,7 +369,7 @@
    * Game clicked during the final move's animation), report gameEnd first so
    * the agent's knowledge never silently loses a finished game. */
   function flushPendingGameEnd() {
-    if (screen !== 'play' || gameEndReported || !state) return;
+    if (mode !== 'solo' || screen !== 'play' || gameEndReported || !state) return;
     var w = E.winner(state);
     if (w) {
       gameEndReported = true;
@@ -334,13 +377,21 @@
     }
   }
 
+  /* A solo game must never start while a multiplayer link is open. */
+  function teardownAnyNetSession() {
+    if (netSession) { netSession.close(); netSession = null; }
+  }
+
   function startGame() {
+    teardownAnyNetSession();
     generation++; clearTimers();
+    mode = 'solo'; mySide = E.RED;
     state = E.initialState();
     resetVisualState();
     screen = 'play';
     els['title-overlay'].classList.add('hidden');
     handicappedGame = (difficulty === 'easy');
+    updateOpponentLabels();
     safeMonitor({ type: 'gameStart' });
     sfx('select');
     refreshInsights();
@@ -348,12 +399,15 @@
   }
   function newGame() {
     flushPendingGameEnd();
+    teardownAnyNetSession();
     generation++; clearTimers();
+    mode = 'solo'; mySide = E.RED;
     state = E.initialState();
     resetVisualState();
     screen = 'play';
     els['title-overlay'].classList.add('hidden');
     handicappedGame = (difficulty === 'easy');
+    updateOpponentLabels();
     safeMonitor({ type: 'gameStart' });
     sfx('select');
     refreshInsights();
@@ -361,11 +415,14 @@
   }
   function goTitle() {
     flushPendingGameEnd();
+    teardownAnyNetSession();
     generation++; clearTimers();
+    mode = 'solo'; mySide = E.RED;
     state = E.initialState();
     resetVisualState();
     screen = 'title';
     els['title-overlay'].classList.remove('hidden');
+    updateOpponentLabels();
     updateTitleBrain();
     render();
   }
@@ -379,8 +436,9 @@
     });
   }
   function undo() {
+    if (mode !== 'solo') return; // undo would desync the two peers' replicated state
     if (screen !== 'play' || over || thinking || committing || mustContinue || !history.length) return;
-    if (!state || state.turn !== E.RED) return;
+    if (!state || state.turn !== mySide) return;
     generation++; clearTimers();
     var snap = history.pop();
     state = snap.state;
@@ -396,7 +454,7 @@
   }
 
   function onCell(r, c) {
-    if (screen !== 'play' || over || thinking || committing || !state || state.turn !== E.RED) return;
+    if (screen !== 'play' || over || thinking || committing || !state || state.turn !== mySide) return;
     ensureAudio();
 
     if (selected) {
@@ -411,7 +469,7 @@
     }
 
     var cellData = state.board[r][c];
-    if (cellData && cellData.p === E.RED) {
+    if (cellData && cellData.p === mySide) {
       var all = E.legalMoves(state);
       var mine = [];
       for (var j = 0; j < all.length; j++) {
@@ -466,8 +524,13 @@
     schedule(function () {
       pushHistory();
       var before = state;
-      var legal = E.legalMoves(before);
-      safeMonitor({ type: 'playerMove', before: before, move: mv, legalMoves: legal });
+      // Multiplayer moves never touch the agent's knowledge — there is no
+      // agent in this match, and a live match must not feed the solo agent's
+      // persistent learning (that would be silently mixing two players' data).
+      if (mode === 'solo') {
+        var legal = E.legalMoves(before);
+        safeMonitor({ type: 'playerMove', before: before, move: mv, legalMoves: legal });
+      }
       state = E.applyMove(before, mv);
       for (var i = 0; i < mv.captures.length; i++) {
         var capCell = before.board[mv.captures[i][0]][mv.captures[i][1]];
@@ -481,15 +544,16 @@
       committing = false;
       timeLeft = TURN_TIME;
       var w = E.winner(state);
+      if (mode === 'mp') sendMove(mv);
       if (w) { finishGame(w); return; }
       render();
-      startAiTurn();
+      if (mode === 'solo') startAiTurn();
     }, 30);
   }
 
   /* Human ran out of time: play a random legal move (or continuation). */
   function autoMoveHuman() {
-    if (screen !== 'play' || over || thinking || committing || state.turn !== E.RED) return;
+    if (screen !== 'play' || over || thinking || committing || state.turn !== mySide) return;
     var pool, offset;
     if (mustContinue && candidates.length) {
       pool = candidates; offset = stepIndex;
@@ -590,7 +654,7 @@
     if (screen !== 'play' || over) return;
     var before = state;
     var legal = E.legalMoves(before);
-    if (!legal.length) { finishGame(E.winner(before) || E.RED); return; }
+    if (!legal.length) { finishGame(E.winner(before) || mySide); return; }
     var mv = pickAiMove(before, legal);
     // Only moves the agent actually chose feed its opening book; recording
     // easy-mode random moves as 'aiMove' would corrupt persistent learning.
@@ -629,13 +693,179 @@
         moveCount++;
         thinking = false;
         timeLeft = TURN_TIME;
-        refreshInsights();
+        if (mode === 'solo') refreshInsights();
         var w = E.winner(state);
         if (w) { finishGame(w); return; }
         render();
       }
     };
     run();
+  }
+
+  /* ------------------------------------------------------------ multiplayer */
+
+  function sendMove(mv) {
+    if (netSession) netSession.send({ type: 'move', move: mv });
+  }
+
+  /* Applies an already-validated opponent move and reuses animateAiMove
+   * (side-agnostic: it only moves pieces along a path and updates the
+   * "other side" tray/pending state) for the visuals and winner check. */
+  function receiveOpponentMove(mv) {
+    var before = state;
+    state = E.applyMove(before, mv);
+    for (var i = 0; i < mv.captures.length; i++) {
+      var capCell = before.board[mv.captures[i][0]][mv.captures[i][1]];
+      pending.ai.push({ king: !!(capCell && capCell.k) });
+    }
+    animateAiMove(mv);
+  }
+
+  function handlePeerMessage(msg) {
+    if (!msg || typeof msg.type !== 'string') return;
+    if (msg.type === 'move') {
+      if (mode !== 'mp' || over || !state || state.turn === mySide) return; // stray/late message
+      var validated = Net.isLegalWireMove(msg.move, state, E);
+      if (!validated) return; // defensive: never trust the wire
+      receiveOpponentMove(validated);
+    } else if (msg.type === 'rematch') {
+      if (mode === 'mp') startMultiplayerRematch(false);
+    } else if (msg.type === 'leave') {
+      handlePeerClose();
+    }
+  }
+
+  function handlePeerClose() {
+    if (mode !== 'mp') return;
+    if (netSession) { netSession.close(); netSession = null; }
+    if (!over) {
+      els['status-main'].textContent = 'Opponent disconnected';
+      els['status-sub'].textContent = 'They left the match.';
+    }
+    var dot = els['mp-conn-dot'];
+    if (dot) dot.classList.add('off');
+  }
+
+  function updateOpponentLabels() {
+    var label = (mode === 'mp') ? oppName : 'Agent';
+    els['opp-name-label'].textContent = label;
+    els['opp-tray-label'].textContent = label + ' captured';
+    els['opp-took-label'].textContent = label + ' took';
+  }
+
+  function showMpStep(step) {
+    els['mp-name-step'].classList.toggle('hidden', step !== 'name');
+    els['mp-generate-step'].classList.toggle('hidden', step !== 'generate');
+    els['mp-join-step'].classList.toggle('hidden', step !== 'join');
+  }
+
+  function cancelNetSession() {
+    if (netSession) { netSession.close(); netSession = null; }
+  }
+
+  function openMultiplayerModal() {
+    ensureAudio();
+    els['mp-name-input'].value = mpName;
+    showMpStep('name');
+    els['mp-overlay'].classList.remove('hidden');
+  }
+  function closeMultiplayerModal() {
+    cancelNetSession();
+    els['mp-overlay'].classList.add('hidden');
+  }
+
+  function mpGenerateCode() {
+    if (!Net || !window.Peer) {
+      els['mp-generate-status'] && (els['mp-generate-status'].textContent = 'Networking is unavailable.');
+      return;
+    }
+    mpName = Net.sanitizeName(els['mp-name-input'].value);
+    savePrefs();
+    var code = Net.makeCode();
+    els['mp-code-display'].textContent = code;
+    els['mp-generate-status'].textContent = 'Waiting for your opponent to join…';
+    showMpStep('generate');
+    cancelNetSession();
+    netSession = new Net.Session({
+      onOpen: function (theirName) {
+        oppName = theirName;
+        beginMultiplayerMatch(E.RED);
+      },
+      onPeerMessage: handlePeerMessage,
+      onPeerClose: handlePeerClose,
+      onError: function (msg) {
+        els['mp-generate-status'].textContent = 'Error: ' + msg;
+      }
+    });
+    netSession.host(code, mpName);
+  }
+
+  function mpConnectWithCode() {
+    if (!Net || !window.Peer) {
+      els['mp-join-status'].textContent = 'Networking is unavailable.';
+      return;
+    }
+    var code = els['mp-code-input'].value.trim();
+    if (!Net.isValidCode(code)) { els['mp-join-status'].textContent = 'Enter a 4-digit code.'; return; }
+    mpName = Net.sanitizeName(els['mp-name-input'].value);
+    savePrefs();
+    els['mp-join-status'].textContent = 'Connecting…';
+    cancelNetSession();
+    netSession = new Net.Session({
+      onOpen: function (theirName) {
+        oppName = theirName;
+        beginMultiplayerMatch(E.BLACK);
+      },
+      onPeerMessage: handlePeerMessage,
+      onPeerClose: handlePeerClose,
+      onError: function (msg) {
+        els['mp-join-status'].textContent = 'Could not connect: ' + msg;
+      }
+    });
+    netSession.join(code, mpName);
+  }
+
+  function beginMultiplayerMatch(side) {
+    generation++; clearTimers();
+    mode = 'mp'; mySide = side;
+    state = E.initialState();
+    resetVisualState();
+    screen = 'play';
+    els['mp-overlay'].classList.add('hidden');
+    els['title-overlay'].classList.add('hidden');
+    els['agent-panel'].classList.add('hidden');
+    els['mp-panel'].classList.remove('hidden');
+    els['btn-undo'].disabled = true;
+    els['mp-my-name'].textContent = mpName;
+    els['mp-opp-name'].textContent = oppName;
+    var dot = els['mp-conn-dot'];
+    if (dot) dot.classList.remove('off');
+    updateOpponentLabels();
+    sfx('select');
+    render();
+  }
+
+  function leaveMultiplayer() {
+    if (netSession) {
+      try { netSession.send({ type: 'leave' }); } catch (err) {}
+      netSession.close();
+      netSession = null;
+    }
+    els['mp-panel'].classList.add('hidden');
+    els['agent-panel'].classList.remove('hidden');
+    els['btn-undo'].disabled = false;
+    goTitle(); // resets mode/mySide back to solo defaults
+  }
+
+  function startMultiplayerRematch(announce) {
+    generation++; clearTimers();
+    state = E.initialState();
+    resetVisualState();
+    screen = 'play';
+    els['over-overlay'].classList.add('hidden');
+    if (announce && netSession) netSession.send({ type: 'rematch' });
+    sfx('select');
+    render();
   }
 
   /* ------------------------------------------------------------ game end */
@@ -649,28 +879,29 @@
       gameEndReported = true;
       // Easy-mode games are handicapped (random AI moves); folding their
       // outcome would pollute the persistent opening book and W/L record.
-      if (!handicappedGame) safeMonitor({ type: 'gameEnd', winner: w });
+      // Multiplayer games never touch the agent's knowledge at all.
+      if (mode === 'solo' && !handicappedGame) safeMonitor({ type: 'gameEnd', winner: w });
     }
-    refreshInsights();
-    updateTitleBrain();
+    if (mode === 'solo') { refreshInsights(); updateTitleBrain(); }
+    els['adapt-stat-block'].classList.toggle('hidden', mode === 'mp');
 
     var headline = els['result-headline'];
     headline.classList.remove('win', 'lose', 'draw');
-    if (w === E.RED) {
+    if (w === mySide) {
       headline.textContent = 'Victory';
       headline.classList.add('win');
-      els['result-sub'].textContent = 'You outplayed the agent.';
+      els['result-sub'].textContent = (mode === 'mp') ? 'You won the match.' : 'You outplayed the agent.';
       sfx('win');
-    } else if (w === E.BLACK) {
-      headline.textContent = 'Defeated';
-      headline.classList.add('lose');
-      els['result-sub'].textContent = 'The agent adapted to you.';
-      sfx('lose');
-    } else {
+    } else if (w === 'draw') {
       headline.textContent = 'Draw';
       headline.classList.add('draw');
       els['result-sub'].textContent = 'Neither side could break through.';
       sfx('select');
+    } else {
+      headline.textContent = 'Defeated';
+      headline.classList.add('lose');
+      els['result-sub'].textContent = (mode === 'mp') ? (oppName + ' won this one.') : 'The agent adapted to you.';
+      sfx('lose');
     }
     els['stat-moves'].textContent = String(moveCount);
     var dur = Math.max(0, Math.floor((endAt - startTime) / 1000));
@@ -685,7 +916,7 @@
   /* ------------------------------------------------------------ hint / timer */
 
   function showHint() {
-    if (screen !== 'play' || over || thinking || committing || mustContinue || state.turn !== E.RED) return;
+    if (screen !== 'play' || over || thinking || committing || mustContinue || state.turn !== mySide) return;
     ensureAudio();
     var legal = E.legalMoves(state);
     if (!legal.length) return;
@@ -710,7 +941,7 @@
     var t = timeLeft - 1;
     if (t <= 5 && t >= 0) sfx('tick');
     if (t < 0) {
-      if (state.turn === E.RED && !thinking) autoMoveHuman();
+      if (state.turn === mySide && !thinking) autoMoveHuman();
       else timeLeft = TURN_TIME;
       renderTimer();
       return;
@@ -848,26 +1079,29 @@
   function render() {
     renderTimer();
 
-    var humanTurn = screen === 'play' && !over && !thinking && !committing && state.turn === E.RED;
+    var humanTurn = screen === 'play' && !over && !thinking && !committing && state.turn === mySide;
 
     // Status card
     var dot = els['turn-dot'];
     // While thinking the engine state may already hold the applied AI move
-    // (turn flipped back to RED mid-animation); the dot stays on the agent.
-    dot.classList.toggle('ai', !over && (thinking || state.turn === E.BLACK));
+    // (turn flipped back to mySide mid-animation); the dot stays on the agent.
+    dot.classList.toggle('ai', !over && (thinking || state.turn !== mySide));
     if (thinking) {
       els['status-main'].textContent = 'Agent thinking…';
       els['status-sub'].textContent = 'MAPE-K · loop';
     } else if (over) {
-      els['status-main'].textContent = winnerSide === E.RED ? 'You win' : (winnerSide === E.BLACK ? 'Agent wins' : 'Draw');
+      els['status-main'].textContent = winnerSide === mySide ? 'You win' : (winnerSide === 'draw' ? 'Draw' : (mode === 'mp' ? oppName + ' wins' : 'Agent wins'));
       els['status-sub'].textContent = 'Game over';
-    } else if (state.turn === E.RED) {
+    } else if (state.turn === mySide) {
       els['status-main'].textContent = mustContinue ? 'Keep jumping!' : 'Your move';
       // SPEC UI contract: surface the forced-capture rule in the status bar.
       // Mid-chain keeps the prototype's 'Move a glowing piece' sub-text.
       var lmAll = E.legalMoves(state);
       var forcedCap = lmAll.length > 0 && lmAll[0].captures.length > 0;
       els['status-sub'].textContent = (forcedCap && !mustContinue) ? 'Capture is mandatory' : 'Move a glowing piece';
+    } else if (mode === 'mp') {
+      els['status-main'].textContent = oppName + '’s move';
+      els['status-sub'].textContent = '…';
     } else {
       els['status-main'].textContent = 'Agent’s move';
       els['status-sub'].textContent = '…';
@@ -878,7 +1112,7 @@
     for (var r = 0; r < 8; r++) {
       for (var c = 0; c < 8; c++) {
         var cellData = state.board[r][c];
-        if (cellData) { if (cellData.p === E.RED) humanCount++; else aiCount++; }
+        if (cellData) { if (cellData.p === mySide) humanCount++; else aiCount++; }
       }
     }
     // pending.human: shown as captured on the board, not yet in engine state.

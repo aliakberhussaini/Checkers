@@ -54,11 +54,11 @@
         </div>
         <div class="counts">
           <div>You <span class="p1" id="human-count">12</span></div>
-          <div>Agent <span class="p2" id="ai-count">12</span></div>
+          <div><span id="opp-name-label">Agent</span> <span class="p2" id="ai-count">12</span></div>
         </div>
       </div>
 
-      <div class="adapt-card">
+      <div class="adapt-card" id="agent-panel">
         <div class="adapt-head">
           <div>
             <div class="adapt-title">Adaptation</div>
@@ -101,6 +101,21 @@
         </div>
       </div>
 
+      <div class="adapt-card mp-panel hidden" id="mp-panel">
+        <div class="adapt-head">
+          <div>
+            <div class="adapt-title">Multiplayer</div>
+            <div class="adapt-tag">Code match</div>
+          </div>
+          <div id="mp-conn-dot" class="mp-conn-dot" title="Connected"></div>
+        </div>
+        <div class="mp-players">
+          <div class="mp-player-row"><span class="mp-player-dot p1"></span><span id="mp-my-name">You</span></div>
+          <div class="mp-player-row"><span class="mp-player-dot p2"></span><span id="mp-opp-name">Opponent</span></div>
+        </div>
+        <button id="btn-mp-leave" class="btn-danger mp-leave-btn">Leave match</button>
+      </div>
+
       <div class="tray-stack">
         <div class="tray-card">
           <div class="tray-head">
@@ -111,7 +126,7 @@
         </div>
         <div class="tray-card">
           <div class="tray-head">
-            <span class="tray-label">Agent captured</span>
+            <span class="tray-label"><span id="opp-tray-label">Agent captured</span></span>
             <span class="tray-count p1" id="stat-agent">0</span>
           </div>
           <div class="tray" id="ai-tray"></div>
@@ -125,7 +140,10 @@
     <div class="title-word">NEON<br>CHECKERS</div>
     <div class="title-blurb">Play a MAPE-K agent that watches every move — Monitor, Analyze, Plan, Execute — and fills its Adaptation meter as it learns your style across games.</div>
     <div id="title-brain">A fresh agent. It learns as you play.</div>
-    <button id="btn-start" class="btn-start">Start game</button>
+    <div class="title-actions">
+      <button id="btn-start" class="btn-start">Play vs Agent</button>
+      <button id="btn-multiplayer" class="btn-start secondary">Multiplayer</button>
+    </div>
   </div>
 
   <div id="over-overlay" class="overlay modal-overlay hidden">
@@ -136,8 +154,8 @@
         <div class="result-stat"><div class="num" id="stat-moves">0</div><div class="cap">Moves</div></div>
         <div class="result-stat"><div class="num" id="stat-duration">0:00</div><div class="cap">Duration</div></div>
         <div class="result-stat"><div class="num p2" id="stat-you-final">0</div><div class="cap">You took</div></div>
-        <div class="result-stat"><div class="num p1" id="stat-agent-final">0</div><div class="cap">Agent took</div></div>
-        <div class="result-stat wide"><div class="num accent" id="stat-adapt">0%</div><div class="cap">Agent adaptation</div></div>
+        <div class="result-stat"><div class="num p1" id="stat-agent-final">0</div><div class="cap" id="opp-took-label">Agent took</div></div>
+        <div class="result-stat wide" id="adapt-stat-block"><div class="num accent" id="stat-adapt">0%</div><div class="cap">Agent adaptation</div></div>
       </div>
       <div class="result-actions">
         <button id="btn-home" class="btn-secondary">Home</button>
@@ -179,9 +197,46 @@
     </div>
   </div>
 
+  <div id="mp-overlay" class="overlay modal-overlay hidden">
+    <div class="modal settings-modal mp-modal">
+      <div class="settings-head">
+        <div class="settings-title">Multiplayer</div>
+        <button id="btn-close-mp" class="btn-close" aria-label="Close">&times;</button>
+      </div>
+
+      <div id="mp-name-step" class="mp-step">
+        <div class="settings-caption">Your name</div>
+        <input id="mp-name-input" class="mp-input" type="text" maxlength="18" placeholder="Enter a name" autocomplete="off">
+        <div class="mp-choice-row">
+          <button id="btn-mp-choose-generate" class="btn-primary">Generate a code</button>
+          <button id="btn-mp-choose-join" class="btn-secondary">I have a code</button>
+        </div>
+      </div>
+
+      <div id="mp-generate-step" class="mp-step hidden">
+        <div class="settings-caption">Share this code</div>
+        <div id="mp-code-display" class="mp-code-display">0000</div>
+        <div id="mp-generate-status" class="mp-status">Waiting for your opponent to join…</div>
+        <button id="btn-mp-back-1" class="btn-secondary">Back</button>
+      </div>
+
+      <div id="mp-join-step" class="mp-step hidden">
+        <div class="settings-caption">Enter the 4-digit code</div>
+        <input id="mp-code-input" class="mp-input mp-code-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="0000" autocomplete="off">
+        <div id="mp-join-status" class="mp-status"></div>
+        <div class="mp-choice-row">
+          <button id="btn-mp-back-2" class="btn-secondary">Back</button>
+          <button id="btn-mp-connect" class="btn-primary">Connect</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 <script src="engine.js"></script>
 <script src="ai.js"></script>
+<script src="vendor/peerjs.min.js"></script>
+<script src="net.js"></script>
 <script src="ui.js"></script>
 </body>
 </html>

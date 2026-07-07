@@ -170,3 +170,53 @@ coral gradient, Black pieces charcoal with inner highlight; inline SVG gold crow
 kings; 200ms ease piece movement, capture fade/pop, promotion glow, subtle win shine;
 legal-move dots; hover affordances; responsive (panel stacks under the board ≤ 900px,
 playable at 375px); system font stack; zero external assets.
+
+NOTE: the shipped v1.0 build supersedes this brief's visuals with a "Neon Grid" dark
+theme imported from a user-supplied Claude Design prototype; the UI contract's
+functional requirements above (five-section live panel, W/L/D scoreboard, mandatory-
+capture notice, etc.) still hold and are met by the current `index.html`/`styles.css`/
+`ui.js`. This file was not retroactively rewritten for that visual pivot — treat the
+running app as the visual source of truth, this section as the functional one.
+
+## Multiplayer (v1.1 addendum)
+
+Human-vs-human play over a 4-digit code, added alongside (not replacing) solo vs. the
+MAPE-K agent. Engine/AI/SPEC rules above are unchanged and fully reused; multiplayer
+adds one new module (`net.js`, global `NetCheckers`) and extends `ui.js`.
+
+- **Never touches agent knowledge.** No `MapeKAgent` instance is involved in a
+  multiplayer match; none of `monitor()`/`chooseMove()`/`getInsights()` are called for
+  it. The solo agent's persistent profile, opening book, and W/L/D record must be
+  byte-identical before and after any number of multiplayer games.
+- **Side assignment**: the code generator (host) plays Red and moves first; the joiner
+  plays Black. The board is NOT flipped for the joiner — both peers share one fixed
+  (row, col) coordinate system (row 0 top). Piece color in the UI is relative ("mine"
+  = p1/cyan, "theirs" = p2/violet) via `mySide`, not literally Red/Black.
+- **Transport**: WebRTC data channel (native browser API, ordered + reliable) carries
+  all gameplay traffic directly peer-to-peer. PeerJS's public broker is used only for
+  the initial handshake (turning a 4-digit code into a connection); once `onOpen`
+  fires, the broker is no longer in the loop. The PeerJS client is vendored at
+  `vendor/peerjs.min.js` (pulled from the npm registry) — the one sanctioned
+  exception to this project's zero-external-dependency rule, and only loaded/used
+  when a player opens Multiplayer.
+- **Wire protocol** (JSON messages over the data channel):
+  - `{type:'hello', name}` — sent by both sides immediately on channel open; the
+    receiving side does not consider the match "connected" (does not fire `onOpen`)
+    until its own hello has been sent AND the peer's hello has been received.
+  - `{type:'move', move}` — `move` is exactly `{from, path, captures}` (SPEC Move
+    shape). The receiver MUST re-validate via `NetCheckers.isLegalWireMove(move,
+    state, CheckersEngine)` before ever applying it — the wire is never trusted, and
+    the receiver applies the engine's own matching move object, not the wire copy.
+  - `{type:'rematch'}` — either side may send; receipt resets both sides to a fresh
+    `initialState()` without renegotiating a code.
+  - `{type:'leave'}` — sent when a player intentionally leaves; the peer surfaces
+    "Opponent disconnected" rather than a generic connection-close.
+- **`NetCheckers` API** (`net.js`, CommonJS-exported like `engine.js`/`ai.js`):
+  `makeCode()`, `idFor(code)`, `isValidCode(code)`, `sanitizeName(name)`,
+  `isLegalWireMove(move, state, Engine)` (pure, unit-tested in `tests/net.test.js`
+  without a live network), and `Session` (thin PeerJS wrapper: `host(code, name)`,
+  `join(code, name)`, `send(msg)`, `close()`; not unit-tested — covered by manual
+  two-browser verification instead, since it needs a live browser + network).
+- **Known limitation**: a 4-digit code is a shared namespace on PeerJS's public
+  broker (10,000 values) — not collision-proof against unrelated PeerJS users
+  worldwide, only unlikely in practice. No reconnect-after-drop.
