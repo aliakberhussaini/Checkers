@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='12' fill='%232dd4bf'/%3E%3Ccircle cx='16' cy='16' r='5.5' fill='none' stroke='%23052b28' stroke-width='2.5'/%3E%3C/svg%3E">
+<style>
+@keyframes capPop { 0%{transform:scale(1);opacity:1} 55%{transform:scale(1.45);opacity:.6} 100%{transform:scale(2);opacity:0} }
+@keyframes hintPulse { 0%,100%{opacity:.35;transform:scale(.92)} 50%{opacity:.9;transform:scale(1.04)} }
+@keyframes phaseGlow { 0%,100%{box-shadow:0 0 0 0 var(--accent)} 50%{box-shadow:0 0 14px 2px var(--accent)} }
+@keyframes floatIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
+</style>
+</helmet>
+<div style="{{ rootStyle }}">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:32px;height:32px;border-radius:9px;background:radial-gradient(circle at 35% 30%, var(--piece-p1-hi), var(--piece-p1) 68%);box-shadow:0 0 14px var(--piece-p1-glow);display:flex;align-items:center;justify-content:center;flex:none;"><div style="width:38%;height:38%;border-radius:50%;border:2px solid rgba(255,255,255,.85);"></div></div>
+      <div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:1.2px;line-height:1;">{{ wordmark }}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px;letter-spacing:.5px;">{{ variantName }}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:7px;">
+      <button title="Hint" onClick="{{ onHint }}" style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);color:var(--text);cursor:pointer;" style-hover="border-color:var(--accent);color:var(--accent)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"></path><path d="M10 21h4"></path><path d="M12 3a6 6 0 0 0-4 10.4c.6.6 1 1.3 1 2.1v.5h6v-.5c0-.8.4-1.5 1-2.1A6 6 0 0 0 12 3z"></path></svg></button>
+      <button title="Undo" onClick="{{ onUndo }}" style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);color:var(--text);cursor:pointer;" style-hover="border-color:var(--accent);color:var(--accent)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7 4 12l5 5"></path><path d="M4 12h11a5 5 0 0 1 0 10h-1"></path></svg></button>
+      <button title="Sound" onClick="{{ onToggleMute }}" style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);color:var(--text);cursor:pointer;" style-hover="border-color:var(--accent);color:var(--accent)">
+        <sc-if value="{{ notMuted }}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path><path d="M18 6a9 9 0 0 1 0 12"></path></svg></sc-if>
+        <sc-if value="{{ muted }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"></path><line x1="16" y1="9" x2="21" y2="14"></line><line x1="21" y1="9" x2="16" y2="14"></line></svg></sc-if>
+      </button>
+      <button title="Settings" onClick="{{ onSettings }}" style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);color:var(--text);cursor:pointer;" style-hover="border-color:var(--accent);color:var(--accent)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="8" x2="20" y2="8"></line><line x1="4" y1="16" x2="20" y2="16"></line><circle cx="9" cy="8" r="2.2"></circle><circle cx="15" cy="16" r="2.2"></circle></svg></button>
+      <button title="New game" onClick="{{ onNewGame }}" style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;background:var(--accent);border:none;color:#04121a;cursor:pointer;box-shadow:0 0 14px var(--piece-p1-glow);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"></path><path d="M21 4v5h-5"></path></svg></button>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:stretch;">
+    <div style="display:flex;flex-direction:column;gap:11px;flex:0 0 auto;width:min(384px,100%);">
+      <div style="display:flex;align-items:center;gap:9px;">
+        <span style="font-size:10px;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);">Turn timer</span>
+        <div style="flex:1;height:7px;border-radius:5px;background:var(--surface-2);overflow:hidden;"><div style="{{ timerBarStyle }}"></div></div>
+        <span style="{{ timerNumStyle }}">{{ timeLeft }}s</span>
+      </div>
+      <div style="position:relative;padding:12px;border-radius:calc(var(--radius-board) + 6px);background:var(--board-frame);box-shadow:0 12px 34px rgba(0,0,0,.5), inset 0 0 0 1px var(--border);">
+        <div style="position:relative;width:100%;aspect-ratio:1/1;border-radius:var(--radius-board);overflow:hidden;">
+          <div style="position:absolute;inset:0;display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);">
+            <sc-for list="{{ cells }}" as="cell" hint-placeholder-count="64">
+              <div style="{{ cell.style }}" onClick="{{ cell.onClick }}">
+                <sc-if value="{{ cell.isHintSq }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:12%;border-radius:9px;border:2px solid var(--accent);box-shadow:0 0 12px var(--accent);animation:hintPulse 1.1s ease-in-out infinite;"></div></sc-if>
+                <sc-if value="{{ cell.isStepHint }}" hint-placeholder-val="{{ false }}"><div style="width:26%;height:26%;border-radius:50%;background:var(--hint);box-shadow:0 0 10px var(--hint);"></div></sc-if>
+                <sc-if value="{{ cell.isCapHint }}" hint-placeholder-val="{{ false }}"><div style="width:64%;height:64%;border-radius:50%;border:3px solid var(--hint);box-shadow:0 0 12px var(--hint), inset 0 0 8px var(--hint);"></div></sc-if>
+                <sc-if value="{{ cell.fileLabel }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:3px;bottom:2px;font-size:8px;color:var(--muted);opacity:.75;pointer-events:none;">{{ cell.fileLabel }}</div></sc-if>
+                <sc-if value="{{ cell.rankLabel }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;left:3px;top:1px;font-size:8px;color:var(--muted);opacity:.75;pointer-events:none;">{{ cell.rankLabel }}</div></sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <div style="position:absolute;inset:0;pointer-events:none;">
+            <sc-for list="{{ pieces }}" as="p" hint-placeholder-count="0">
+              <div style="{{ p.style }}">
+                <sc-if value="{{ p.hintMove }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;width:86%;height:86%;border-radius:50%;border:2px solid var(--sel);animation:hintPulse 1.5s ease-in-out infinite;"></div></sc-if>
+                <sc-if value="{{ p.isMine }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:relative;width:76%;height:76%;border-radius:50%;background:radial-gradient(circle at 35% 30%, var(--piece-p1-hi), var(--piece-p1) 68%);border:2px solid var(--piece-p1-edge);box-shadow:0 5px 11px rgba(0,0,0,.5), 0 0 16px var(--piece-p1-glow), inset 0 -3px 6px rgba(0,0,0,.35), inset 0 3px 7px rgba(255,255,255,.28);display:flex;align-items:center;justify-content:center;">
+                    <sc-if value="{{ p.isKing }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;width:54%;height:54%;border-radius:50%;border:2px solid var(--king-line);box-shadow:0 0 7px var(--king-line);"></div></sc-if>
+                    <div style="{{ p.markStyle }}"></div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ p.isAi }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:relative;width:76%;height:76%;border-radius:50%;background:radial-gradient(circle at 35% 30%, var(--piece-p2-hi), var(--piece-p2) 68%);border:2px solid var(--piece-p2-edge);box-shadow:0 5px 11px rgba(0,0,0,.5), 0 0 16px var(--piece-p2-glow), inset 0 -3px 6px rgba(0,0,0,.35), inset 0 3px 7px rgba(255,255,255,.28);display:flex;align-items:center;justify-content:center;">
+                    <sc-if value="{{ p.isKing }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;width:54%;height:54%;border-radius:50%;border:2px solid var(--king-line);box-shadow:0 0 7px var(--king-line);"></div></sc-if>
+                    <div style="{{ p.markStyle }}"></div>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+            <sc-for list="{{ effects }}" as="fx" hint-placeholder-count="0">
+              <div style="{{ fx.style }}"><div style="{{ fx.discStyle }}"></div></div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:1;min-width:238px;display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;align-items:center;gap:10px;padding:13px 15px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border);">
+        <div style="{{ turnDotStyle }}"></div>
+        <div style="flex:1;">
+          <div style="font-size:15px;font-weight:700;">{{ statusMain }}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">{{ statusSub }}</div>
+        </div>
+        <div style="text-align:right;font-size:11px;color:var(--muted);line-height:1.55;">
+          <div>You <span style="color:var(--piece-p1);font-weight:700;">{{ humanCount }}</span></div>
+          <div>Agent <span style="color:var(--piece-p2);font-weight:700;">{{ aiCount }}</span></div>
+        </div>
+      </div>
+
+      <div style="padding:15px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div><div style="font-size:13px;font-weight:700;letter-spacing:.3px;">Adaptation</div><div style="font-size:10px;color:var(--muted);letter-spacing:.6px;text-transform:uppercase;margin-top:2px;">MAPE-K agent</div></div>
+          <div style="font-size:10px;color:var(--muted);">Skill <span style="color:var(--accent);font-weight:700;">{{ skillPct }}%</span></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div style="position:relative;width:104px;height:104px;flex:none;">
+            <svg width="104" height="104" viewBox="0 0 104 104"><circle cx="52" cy="52" r="42" fill="none" stroke="var(--track)" stroke-width="9"></circle><circle cx="52" cy="52" r="42" fill="none" stroke="var(--accent)" stroke-width="9" stroke-linecap="round" transform="rotate(-90 52 52)" stroke-dasharray="{{ ringDash }}" stroke-dashoffset="{{ ringOffset }}" style="transition:stroke-dashoffset .6s ease;filter:drop-shadow(0 0 6px var(--accent));"></circle></svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;"><div style="font-size:24px;font-weight:700;line-height:1;">{{ level }}<span style="font-size:12px;">%</span></div><div style="font-size:9px;color:var(--muted);letter-spacing:.6px;">LEARNED</div></div>
+          </div>
+          <div style="flex:1;font-size:11px;color:var(--muted);line-height:1.75;">
+            <div>Games <span style="color:var(--text);font-weight:700;">{{ brainGames }}</span></div>
+            <div>Moves seen <span style="color:var(--text);font-weight:700;">{{ brainMoves }}</span></div>
+            <div>Agent wins <span style="color:var(--piece-p2);font-weight:700;">{{ agentWins }}</span></div>
+            <div>Your wins <span style="color:var(--piece-p1);font-weight:700;">{{ playerWins }}</span></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:13px;">
+          <sc-for list="{{ phases }}" as="ph" hint-placeholder-count="4">
+            <div style="{{ ph.style }}" title="{{ ph.label }}"><div style="font-size:14px;">{{ ph.letter }}</div><div style="font-size:8px;letter-spacing:.2px;opacity:.85;">{{ ph.label }}</div></div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:9px;">
+        <div style="padding:10px 12px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;"><span style="font-size:11px;color:var(--muted);letter-spacing:.4px;">You captured</span><span style="font-size:12px;font-weight:700;color:var(--piece-p2);">{{ statYou }}</span></div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;min-height:16px;">
+            <sc-for list="{{ humanTray }}" as="t" hint-placeholder-count="0"><div style="width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 30%, var(--piece-p2-hi), var(--piece-p2) 68%);box-shadow:0 0 6px var(--piece-p2-glow);display:flex;align-items:center;justify-content:center;"><sc-if value="{{ t.isKing }}" hint-placeholder-val="{{ false }}"><div style="width:46%;height:46%;border-radius:50%;border:1.5px solid rgba(255,255,255,.9);"></div></sc-if></div></sc-for>
+          </div>
+        </div>
+        <div style="padding:10px 12px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;"><span style="font-size:11px;color:var(--muted);letter-spacing:.4px;">Agent captured</span><span style="font-size:12px;font-weight:700;color:var(--piece-p1);">{{ statAgent }}</span></div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;min-height:16px;">
+            <sc-for list="{{ aiTray }}" as="t" hint-placeholder-count="0"><div style="width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 30%, var(--piece-p1-hi), var(--piece-p1) 68%);box-shadow:0 0 6px var(--piece-p1-glow);display:flex;align-items:center;justify-content:center;"><sc-if value="{{ t.isKing }}" hint-placeholder-val="{{ false }}"><div style="width:46%;height:46%;border-radius:50%;border:1.5px solid rgba(255,255,255,.9);"></div></sc-if></div></sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ isTitle }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:16px;padding:30px;background:linear-gradient(180deg, rgba(8,13,20,.88), rgba(8,13,20,.95));backdrop-filter:blur(4px);animation:floatIn .3s ease;">
+      <div style="font-size:12px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;">{{ variantTag }} · Player vs Agent</div>
+      <div style="font-size:46px;font-weight:700;letter-spacing:2px;line-height:.98;text-shadow:0 0 30px var(--piece-p1-glow);">NEON<br>CHECKERS</div>
+      <div style="max-width:350px;font-size:13px;color:var(--muted);line-height:1.65;">Play a MAPE-K agent that watches every move — Monitor, Analyze, Plan, Execute — and fills its Adaptation meter as it learns your style across games.</div>
+      <div style="font-size:12px;color:var(--text);opacity:.92;">{{ titleBrainText }}</div>
+      <button onClick="{{ onStart }}" style="margin-top:6px;background:var(--accent);color:#04121a;border:none;border-radius:14px;padding:14px 36px;font-family:inherit;font-weight:700;font-size:16px;cursor:pointer;box-shadow:0 0 26px var(--piece-p1-glow);">Start game</button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ over }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(6,12,20,.82);backdrop-filter:blur(4px);">
+      <div style="width:100%;max-width:360px;padding:26px;border-radius:18px;background:var(--surface);border:1px solid var(--border);text-align:center;animation:floatIn .3s ease;box-shadow:0 20px 60px rgba(0,0,0,.6);">
+        <div style="{{ resultStyle }}">{{ resultHeadline }}</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:8px;">{{ resultSub }}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:20px 0;">
+          <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:11px;padding:11px;"><div style="font-size:20px;font-weight:700;">{{ statMoves }}</div><div style="font-size:10px;color:var(--muted);letter-spacing:.4px;text-transform:uppercase;margin-top:2px;">Moves</div></div>
+          <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:11px;padding:11px;"><div style="font-size:20px;font-weight:700;">{{ durationText }}</div><div style="font-size:10px;color:var(--muted);letter-spacing:.4px;text-transform:uppercase;margin-top:2px;">Duration</div></div>
+          <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:11px;padding:11px;"><div style="font-size:20px;font-weight:700;color:var(--piece-p2);">{{ statYou }}</div><div style="font-size:10px;color:var(--muted);letter-spacing:.4px;text-transform:uppercase;margin-top:2px;">You took</div></div>
+          <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:11px;padding:11px;"><div style="font-size:20px;font-weight:700;color:var(--piece-p1);">{{ statAgent }}</div><div style="font-size:10px;color:var(--muted);letter-spacing:.4px;text-transform:uppercase;margin-top:2px;">Agent took</div></div>
+          <div style="grid-column:1/3;background:var(--surface-2);border:1px solid var(--border);border-radius:11px;padding:11px;"><div style="font-size:20px;font-weight:700;color:var(--accent);">{{ statAdapt }}%</div><div style="font-size:10px;color:var(--muted);letter-spacing:.4px;text-transform:uppercase;margin-top:2px;">Agent adaptation</div></div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button onClick="{{ onHome }}" style="flex:1;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer;">Home</button>
+          <button onClick="{{ onRematch }}" style="flex:1;background:var(--accent);color:#04121a;border:none;border-radius:12px;padding:12px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 0 20px var(--piece-p1-glow);">Rematch</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:21;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(6,12,20,.82);backdrop-filter:blur(4px);">
+      <div style="width:100%;max-width:340px;padding:22px;border-radius:18px;background:var(--surface);border:1px solid var(--border);animation:floatIn .3s ease;box-shadow:0 20px 60px rgba(0,0,0,.6);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+          <div style="font-size:17px;font-weight:700;">Settings</div>
+          <button onClick="{{ onCloseSettings }}" style="width:32px;height:32px;border-radius:9px;background:var(--surface-2);border:1px solid var(--border);color:var(--text);cursor:pointer;font-size:16px;line-height:1;">×</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;">Difficulty</div>
+        <div style="display:flex;gap:6px;margin-bottom:8px;">
+          <sc-for list="{{ diffOptions }}" as="d" hint-placeholder-count="3"><div style="{{ d.style }}" onClick="{{ d.onClick }}">{{ d.label }}</div></sc-for>
+        </div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:18px;">{{ diffNote }}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--border);">
+          <div><div style="font-size:14px;font-weight:600;">Sound effects</div><div style="font-size:11px;color:var(--muted);">Synth tones for moves &amp; captures</div></div>
+          <button onClick="{{ onToggleMute }}" style="{{ soundToggleStyle }}">{{ soundLabel }}</button>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--border);">
+          <div><div style="font-size:14px;font-weight:600;">Colorblind cues</div><div style="font-size:11px;color:var(--muted);">Shape marks on each piece</div></div>
+          <button onClick="{{ onToggleColorblind }}" style="{{ cbToggleStyle }}">{{ cbLabel }}</button>
+        </div>
+        <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:6px;">
+          <button onClick="{{ onResetBrain }}" style="width:100%;background:transparent;color:var(--danger);border:1px solid var(--danger);border-radius:12px;padding:12px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer;">Reset brain — erase what the agent learned</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;740px&quot;,&quot;height&quot;:&quot;620px&quot;},&quot;variant&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;aurora&quot;,&quot;grid&quot;],&quot;default&quot;:&quot;aurora&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Theme&quot;}}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.TURN_TIME = 30;
+    this.variant = (props && props.variant === 'grid') ? 'grid' : 'aurora';
+    this.storeKey = 'neon-checkers-brain-' + this.variant;
+    this.timeouts = [];
+    this.fxc = 0;
+    this.state = this.freshState(true);
+  }
+
+  themeVars(v){
+    if (v === 'grid') return { name: 'Neon Grid', vars: {
+      '--font': "'Space Grotesk'", '--surface': 'linear-gradient(180deg,#0e1a29,#0a121d)', '--surface-2': 'rgba(34,211,238,.055)',
+      '--track': 'rgba(255,255,255,.06)', '--border': 'rgba(34,211,238,.18)', '--text': '#e6f0f7', '--muted': '#7f93a8',
+      '--board-light': '#12253a', '--board-dark': '#0a1826', '--board-frame': '#07101a',
+      '--piece-p1': '#0891b2', '--piece-p1-hi': '#67e8f9', '--piece-p1-edge': '#0e7490', '--piece-p1-glow': 'rgba(34,211,238,.6)',
+      '--piece-p2': '#8b5cf6', '--piece-p2-hi': '#c4b5fd', '--piece-p2-edge': '#6d28d9', '--piece-p2-glow': 'rgba(167,139,250,.6)',
+      '--accent': '#22d3ee', '--danger': '#fb7185', '--hint': 'rgba(34,211,238,.9)', '--sel': '#22d3ee',
+      '--lastmove': 'rgba(34,211,238,.16)', '--grid-line': 'rgba(34,211,238,.10)', '--king-line': 'rgba(255,255,255,.92)',
+      '--radius-card': '12px', '--radius-board': '8px'
+    }};
+    return { name: 'Neon Aurora', vars: {
+      '--font': "'Fredoka'", '--surface': 'linear-gradient(180deg,#141f2c,#0f1823)', '--surface-2': 'rgba(255,255,255,.045)',
+      '--track': 'rgba(255,255,255,.06)', '--border': 'rgba(45,212,191,.16)', '--text': '#e8eef5', '--muted': '#8ea0b3',
+      '--board-light': '#26384a', '--board-dark': '#152535', '--board-frame': '#0c141d',
+      '--piece-p1': '#14b8a6', '--piece-p1-hi': '#5eead4', '--piece-p1-edge': '#0d9488', '--piece-p1-glow': 'rgba(45,212,191,.55)',
+      '--piece-p2': '#fb5c7d', '--piece-p2-hi': '#ffa6b8', '--piece-p2-edge': '#e11d48', '--piece-p2-glow': 'rgba(251,113,133,.55)',
+      '--accent': '#2dd4bf', '--danger': '#fb7185', '--hint': 'rgba(45,212,191,.9)', '--sel': '#2dd4bf',
+      '--lastmove': 'rgba(45,212,191,.16)', '--grid-line': 'rgba(255,255,255,.02)', '--king-line': 'rgba(255,255,255,.9)',
+      '--radius-card': '24px', '--radius-board': '20px'
+    }};
+  }
+
+  loadBrain(){
+    try { const raw = localStorage.getItem(this.storeKey); if (raw){ const b = JSON.parse(raw); return { level: Math.min(100, b.level||0), games: b.games||0, moves: b.moves||0, wins: b.wins||0, losses: b.losses||0 }; } } catch(e){}
+    return { level: 0, games: 0, moves: 0, wins: 0, losses: 0 };
+  }
+  saveBrain(b){ try { localStorage.setItem(this.storeKey, JSON.stringify(b)); } catch(e){} }
+
+  freshState(initial){
+    const prev = initial ? null : this.state;
+    return {
+      board: this.initialBoard(), turn: 'human', selected: null, legal: [], mustContinue: null,
+      humanTray: [], aiTray: [], lastMove: null, history: [],
+      over: false, winner: null, endAt: null, timeLeft: this.TURN_TIME, low: false,
+      muted: prev ? prev.muted : false, colorblind: prev ? prev.colorblind : false,
+      difficulty: prev ? prev.difficulty : 'adaptive',
+      thinking: false, effects: [], phase: -1, phaseLabel: '',
+      screen: initial ? 'title' : 'play', settingsOpen: false,
+      brain: initial ? this.loadBrain() : prev.brain,
+      hintCell: null, moveCount: 0, progressPlies: 0, startTime: Date.now()
+    };
+  }
+
+  initialBoard(){
+    const b = Array.from({length:8}, () => Array(8).fill(null));
+    let h = 0, a = 0;
+    for (let r=0;r<8;r++) for (let c=0;c<8;c++){
+      if ((r+c)%2 === 1){
+        if (r < 3) b[r][c] = { id:'a'+(a++), player:'ai', king:false };
+        else if (r > 4) b[r][c] = { id:'h'+(h++), player:'human', king:false };
+      }
+    }
+    return b;
+  }
+
+  inB(r,c){ return r>=0 && r<8 && c>=0 && c<8; }
+  dirsFor(p){ return p.king ? [[-1,-1],[-1,1],[1,-1],[1,1]] : (p.player==='human' ? [[-1,-1],[-1,1]] : [[1,-1],[1,1]]); }
+  captures(board,r,c){
+    const p = board[r][c]; if (!p) return [];
+    const res = [];
+    for (const [dr,dc] of this.dirsFor(p)){
+      const mr=r+dr, mc=c+dc, lr=r+2*dr, lc=c+2*dc;
+      if (this.inB(lr,lc) && !board[lr][lc] && this.inB(mr,mc) && board[mr][mc] && board[mr][mc].player !== p.player) res.push({ from:[r,c], to:[lr,lc], cap:[mr,mc] });
+    }
+    return res;
+  }
+  steps(board,r,c){
+    const p = board[r][c]; if (!p) return [];
+    const res = [];
+    for (const [dr,dc] of this.dirsFor(p)){ const nr=r+dr, nc=c+dc; if (this.inB(nr,nc) && !board[nr][nc]) res.push({ from:[r,c], to:[nr,nc], cap:null }); }
+    return res;
+  }
+  allCaptures(board,player){ const res=[]; for(let r=0;r<8;r++)for(let c=0;c<8;c++){ const p=board[r][c]; if(p&&p.player===player) res.push(...this.captures(board,r,c)); } return res; }
+  allSteps(board,player){ const res=[]; for(let r=0;r<8;r++)for(let c=0;c<8;c++){ const p=board[r][c]; if(p&&p.player===player) res.push(...this.steps(board,r,c)); } return res; }
+  allMoves(board,player){ const caps=this.allCaptures(board,player); return caps.length ? caps : this.allSteps(board,player); }
+  legalForPiece(board,r,c){ const p=board[r][c]; if(!p) return []; const caps=this.allCaptures(board,p.player); if(caps.length) return this.captures(board,r,c); return this.steps(board,r,c); }
+
+  applyMove(board,m){
+    const nb = board.map(row => row.slice());
+    const p = nb[m.from[0]][m.from[1]];
+    nb[m.from[0]][m.from[1]] = null;
+    let capturedPiece = null;
+    if (m.cap){ capturedPiece = nb[m.cap[0]][m.cap[1]]; nb[m.cap[0]][m.cap[1]] = null; }
+    const wasMan = !p.king;
+    nb[m.to[0]][m.to[1]] = p;
+    let promoted = false;
+    if (!p.king){ if (p.player==='human' && m.to[0]===0){ p.king=true; promoted=true; } if (p.player==='ai' && m.to[0]===7){ p.king=true; promoted=true; } }
+    return { board:nb, promoted, piece:p, capturedPiece, wasMan };
+  }
+
+  ensureAudio(){ if(!this.actx){ try{ this.actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ this.actx=null; } } if(this.actx && this.actx.state==='suspended') this.actx.resume(); }
+  sfx(name){
+    if (this.state.muted || !this.actx) return;
+    const A = this.actx, now = A.currentTime;
+    const map = {
+      select: [[440,0,0.06,'triangle',0.14]],
+      move: [[300,0,0.08,'sine',0.18],[420,0.05,0.07,'sine',0.1]],
+      capture: [[200,0,0.12,'sawtooth',0.2],[110,0.07,0.16,'square',0.16]],
+      king: [[523,0,0.1,'triangle',0.18],[784,0.09,0.16,'triangle',0.18]],
+      tick: [[900,0,0.03,'square',0.06]],
+      win: [[523,0,0.12,'triangle',0.2],[659,0.12,0.12,'triangle',0.2],[784,0.24,0.22,'triangle',0.22],[1047,0.42,0.3,'triangle',0.2]],
+      lose: [[392,0,0.18,'sawtooth',0.16],[294,0.16,0.22,'sawtooth',0.16],[196,0.36,0.4,'sine',0.16]],
+      phase: [[660,0,0.04,'triangle',0.07]]
+    };
+    const notes = map[name]; if(!notes) return;
+    for (const [f,t,d,ty,g] of notes){
+      const o=A.createOscillator(), ga=A.createGain();
+      o.type=ty; o.frequency.value=f; o.connect(ga); ga.connect(A.destination);
+      const st=now+t; ga.gain.setValueAtTime(0.0001,st); ga.gain.exponentialRampToValueAtTime(g,st+0.012); ga.gain.exponentialRampToValueAtTime(0.0001,st+d);
+      o.start(st); o.stop(st+d+0.03);
+    }
+  }
+  schedule(fn,ms){ const id=setTimeout(fn,ms); this.timeouts.push(id); return id; }
+  clearTimers(){ this.timeouts.forEach(clearTimeout); this.timeouts=[]; }
+
+  startGame(){ this.ensureAudio(); this.setState({ screen:'play', startTime:Date.now() }); this.sfx('select'); }
+  newGame(){ this.clearTimers(); this.ensureAudio(); this.setState(Object.assign(this.freshState(false), { screen:'play' })); this.sfx('select'); }
+  goTitle(){ this.clearTimers(); this.setState(Object.assign(this.freshState(false), { screen:'title' })); }
+  toggleMute(){ this.ensureAudio(); this.setState(s => ({ muted: !s.muted })); }
+  toggleColorblind(){ this.setState(s => ({ colorblind: !s.colorblind })); }
+  setDifficulty(d){ this.setState({ difficulty: d }); }
+  openSettings(){ this.setState({ settingsOpen: true }); }
+  closeSettings(){ this.setState({ settingsOpen: false }); }
+  resetBrain(){ const brain={ level:0, games:0, moves:0, wins:0, losses:0 }; this.saveBrain(brain); this.setState({ brain }); }
+
+  pushHistory(){
+    const S=this.state;
+    const snap={ board:S.board.map(row=>row.map(c=>c?Object.assign({},c):null)), humanTray:[...S.humanTray], aiTray:[...S.aiTray], lastMove:S.lastMove, moveCount:S.moveCount, progressPlies:S.progressPlies };
+    this.setState(s=>({ history:[...s.history, snap] }));
+  }
+  undo(){
+    const S=this.state;
+    if (S.thinking || S.over || S.screen!=='play' || !S.history.length || S.mustContinue) return;
+    const hist=[...S.history]; const snap=hist.pop();
+    this.clearTimers();
+    this.setState({ board:snap.board, humanTray:snap.humanTray, aiTray:snap.aiTray, lastMove:snap.lastMove, moveCount:snap.moveCount, progressPlies:snap.progressPlies, history:hist, selected:null, legal:[], mustContinue:null, turn:'human', thinking:false, phase:-1, timeLeft:this.TURN_TIME, low:false, over:false, winner:null });
+    this.sfx('select');
+  }
+
+  onCell(r,c){
+    const S=this.state;
+    if (S.over || S.turn!=='human' || S.thinking || S.screen!=='play') return;
+    this.ensureAudio();
+    const board=S.board; const cell=board[r][c];
+    if (S.selected){ const mv=S.legal.find(m=>m.to[0]===r && m.to[1]===c); if (mv){ this.doHumanMove(mv); return; } }
+    if (cell && cell.player==='human'){
+      if (S.mustContinue && (S.mustContinue[0]!==r || S.mustContinue[1]!==c)) return;
+      const legal=this.legalForPiece(board,r,c);
+      if (legal.length){ this.setState({ selected:[r,c], legal, hintCell:null }); this.sfx('select'); }
+      return;
+    }
+    if (!S.mustContinue) this.setState({ selected:null, legal:[] });
+  }
+
+  doHumanMove(mv){
+    const S=this.state;
+    if (!S.mustContinue) this.pushHistory();
+    const res=this.applyMove(S.board,mv);
+    let humanTray=S.humanTray;
+    if (mv.cap){ humanTray=[...humanTray,{ king:!!res.capturedPiece.king }]; this.pushEffect(res.capturedPiece,mv.cap); this.sfx('capture'); }
+    else this.sfx('move');
+    if (res.promoted) this.sfx('king');
+    const progressPlies=(mv.cap||res.wasMan||res.promoted)?0:S.progressPlies+1;
+    const lastMove={ from:mv.from, to:mv.to };
+    const canChain = mv.cap && !res.promoted && this.captures(res.board,mv.to[0],mv.to[1]).length>0;
+    if (canChain){
+      const legal=this.captures(res.board,mv.to[0],mv.to[1]);
+      this.setState({ board:res.board, humanTray, selected:mv.to, legal, mustContinue:mv.to, lastMove, progressPlies, moveCount:S.moveCount+1, timeLeft:this.TURN_TIME, low:false, hintCell:null });
+    } else {
+      this.learnFromHuman();
+      this.setState({ board:res.board, humanTray, selected:null, legal:[], mustContinue:null, lastMove, timeLeft:this.TURN_TIME, low:false, progressPlies, moveCount:S.moveCount+1, hintCell:null }, () => this.afterMove('human'));
+    }
+  }
+
+  learnFromHuman(){
+    this.setState(s => { const lvl=Math.min(100, s.brain.level + (100-s.brain.level)*0.010 + 0.35); const brain=Object.assign({},s.brain,{ level:lvl, moves:s.brain.moves+1 }); this.saveBrain(brain); return { brain }; });
+  }
+
+  afterMove(mover){ if (this.state.progressPlies>=40){ this.endGame('draw'); return; } this.endTurn(mover); }
+  endTurn(mover){
+    const next = mover==='human' ? 'ai' : 'human';
+    const moves=this.allMoves(this.state.board,next);
+    if (!moves.length){ this.endGame(mover); return; }
+    this.setState({ turn:next, timeLeft:this.TURN_TIME, low:false });
+    if (next==='ai'){ this.setState({ thinking:true }); this.schedule(()=>this.aiTurn(),450); }
+  }
+  endGame(winner){
+    const humanWon = winner==='human', draw = winner==='draw';
+    this.setState(s => {
+      const brain=Object.assign({},s.brain,{ games:s.brain.games+1, level:Math.min(100,s.brain.level+(draw?1:2)), wins:s.brain.wins+((!draw&&winner==='ai')?1:0), losses:s.brain.losses+((!draw&&winner==='human')?1:0) });
+      this.saveBrain(brain);
+      return { over:true, winner, turn:null, thinking:false, phase:-1, endAt:Date.now(), brain };
+    });
+    this.sfx(humanWon ? 'win' : (draw ? 'select' : 'lose'));
+  }
+
+  aiSkill(){ const d=this.state.difficulty; if(d==='easy') return 0.12; if(d==='hard') return 0.95; return 0.18 + 0.77*(this.state.brain.level/100); }
+  threatened(board,pos,player){
+    const opp = player==='ai' ? 'human' : 'ai';
+    for (let r=0;r<8;r++) for (let c=0;c<8;c++){ const p=board[r][c]; if (p && p.player===opp){ const caps=this.captures(board,r,c); if (caps.some(cm=>cm.cap[0]===pos[0] && cm.cap[1]===pos[1])) return true; } }
+    return false;
+  }
+  scoreMove(board,m){
+    let s=0; if (m.cap) s+=100;
+    const res=this.applyMove(board,m);
+    if (res.promoted) s+=45;
+    s += m.to[0]*3;
+    s += (3.5-Math.abs(3.5-m.to[1]))*1.2;
+    const skill=this.aiSkill();
+    if (this.threatened(res.board,m.to,'ai')) s -= 55*(0.4+0.6*skill);
+    s += Math.random()*5*(1-skill);
+    return s;
+  }
+  bestOf(moves,board){
+    let best=[], bs=-1e9;
+    for (const m of moves){ const s=this.scoreMove(board,m); if (s>bs+0.0001){ bs=s; best=[m]; } else if (Math.abs(s-bs)<=0.0001) best.push(m); }
+    return best[Math.floor(Math.random()*best.length)];
+  }
+  pickAiMove(board,forced){
+    let moves;
+    if (forced) moves=this.captures(board,forced[0],forced[1]);
+    else moves=this.allMoves(board,'ai');
+    if (!moves.length) return null;
+    const skill=this.aiSkill();
+    if (!forced && Math.random()>skill && !this.allCaptures(board,'ai').length) return moves[Math.floor(Math.random()*moves.length)];
+    return this.bestOf(moves,board);
+  }
+  aiTurn(){
+    if (this.state.over) return;
+    const labels=['Monitor','Analyze','Plan','Execute']; let i=0;
+    const step=()=>{
+      if (this.state.over) return;
+      this.setState({ phase:i, phaseLabel:labels[i] }); this.sfx('phase'); i++;
+      if (i<labels.length) this.schedule(step,180);
+      else this.schedule(()=>{ this.setState({ phase:-1, phaseLabel:'' }); this.aiExecute(this.state.board,null); },200);
+    };
+    step();
+  }
+  aiExecute(board,forced){
+    if (this.state.over) return;
+    const mv=this.pickAiMove(board,forced);
+    if (!mv){ this.endGame('human'); return; }
+    const res=this.applyMove(board,mv);
+    let aiTray=this.state.aiTray;
+    if (mv.cap){ aiTray=[...aiTray,{ king:!!res.capturedPiece.king }]; this.pushEffect(res.capturedPiece,mv.cap); this.sfx('capture'); }
+    else this.sfx('move');
+    if (res.promoted) this.sfx('king');
+    const progressPlies=(mv.cap||res.wasMan||res.promoted)?0:this.state.progressPlies+1;
+    const lastMove={ from:mv.from, to:mv.to };
+    const chain = mv.cap && !res.promoted && this.captures(res.board,mv.to[0],mv.to[1]).length>0;
+    this.setState({ board:res.board, aiTray, lastMove, progressPlies, moveCount:this.state.moveCount+1 });
+    if (chain) this.schedule(()=>this.aiExecute(res.board,mv.to),360);
+    else this.setState({ thinking:false }, () => this.afterMove('ai'));
+  }
+
+  showHint(){
+    const S=this.state;
+    if (S.turn!=='human' || S.over || S.thinking || S.screen!=='play') return;
+    const moves=this.allMoves(S.board,'human'); if (!moves.length) return;
+    const m=this.bestOf(moves,S.board);
+    this.setState({ hintCell:{ from:m.from, to:m.to } });
+    this.sfx('select');
+    this.schedule(()=>this.setState({ hintCell:null }),1800);
+  }
+
+  autoMoveHuman(){
+    const S=this.state;
+    const moves = S.mustContinue ? this.captures(S.board,S.mustContinue[0],S.mustContinue[1]) : this.allMoves(S.board,'human');
+    if (moves.length) this.doHumanMove(moves[Math.floor(Math.random()*moves.length)]);
+  }
+  pushEffect(piece,pos){
+    const key='fx'+(++this.fxc);
+    this.setState(s=>({ effects:[...s.effects,{ key, r:pos[0], c:pos[1], player:piece.player }] }));
+    this.schedule(()=>{ this.setState(s=>({ effects:s.effects.filter(e=>e.key!==key) })); },460);
+  }
+
+  componentDidMount(){
+    this.timer=setInterval(()=>{
+      const S=this.state;
+      if (S.over || S.screen!=='play') return;
+      let t=S.timeLeft-1;
+      if (t<=5 && t>=0) this.sfx('tick');
+      if (t<0){ if (S.turn==='human' && !S.thinking) this.autoMoveHuman(); else this.setState({ timeLeft:this.TURN_TIME, low:false }); return; }
+      this.setState({ timeLeft:t, low:t<=5 });
+    },1000);
+  }
+  componentWillUnmount(){ clearInterval(this.timer); this.clearTimers(); if (this.actx && this.actx.close) try{ this.actx.close(); }catch(e){} }
+
+  renderVals(){
+    const S=this.state, v=this.variant, T=this.themeVars(v);
+    const rootStyle=Object.assign({}, T.vars, {
+      position:'relative', overflow:'hidden', boxSizing:'border-box',
+      width:'min(720px, 94vw)', padding:'18px', borderRadius:'var(--radius-card)',
+      background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text)',
+      fontFamily:"var(--font), 'Space Grotesk', system-ui, sans-serif", boxShadow:'0 24px 70px rgba(0,0,0,.55)'
+    });
+    const board=S.board;
+    let movable=new Set();
+    if (S.screen==='play' && S.turn==='human' && !S.selected && !S.over && !S.thinking){
+      const caps=this.allCaptures(board,'human');
+      (caps.length ? caps : this.allSteps(board,'human')).forEach(m=>movable.add(m.from[0]+'-'+m.from[1]));
+    }
+    const legalSet=new Set(S.legal.map(m=>m.to[0]+'-'+m.to[1]));
+    const capSet=new Set(S.legal.filter(m=>m.cap).map(m=>m.to[0]+'-'+m.to[1]));
+    const lm=S.lastMove; const lmFrom=lm?lm.from[0]+'-'+lm.from[1]:'x'; const lmTo=lm?lm.to[0]+'-'+lm.to[1]:'x';
+    const hc=S.hintCell; const hFrom=hc?hc.from[0]+'-'+hc.from[1]:'x'; const hTo=hc?hc.to[0]+'-'+hc.to[1]:'x';
+    const files=['a','b','c','d','e','f','g','h'];
+    const cells=[];
+    for (let r=0;r<8;r++) for (let c=0;c<8;c++){
+      const playable=(r+c)%2===1; const key=r+'-'+c;
+      const isSel=S.selected && S.selected[0]===r && S.selected[1]===c;
+      const isLast=(key===lmFrom || key===lmTo);
+      let bs='inset 0 0 0 1px var(--grid-line)';
+      if (isLast) bs='inset 0 0 0 3px var(--lastmove)';
+      if (isSel) bs='inset 0 0 0 3px var(--sel), inset 0 0 22px var(--sel)';
+      cells.push({
+        key,
+        style:{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center', background: playable?'var(--board-dark)':'var(--board-light)', cursor:(S.turn==='human'&&!S.over&&!S.thinking&&S.screen==='play')?'pointer':'default', boxShadow:bs },
+        isStepHint: legalSet.has(key) && !capSet.has(key),
+        isCapHint: capSet.has(key),
+        isHintSq: (key===hFrom || key===hTo),
+        fileLabel: r===7 ? files[c] : '',
+        rankLabel: c===0 ? String(8-r) : '',
+        onClick: () => this.onCell(r,c)
+      });
+    }
+    const cb=S.colorblind;
+    const pieces=[]; let humanCount=0, aiCount=0;
+    for (let r=0;r<8;r++) for (let c=0;c<8;c++){
+      const p=board[r][c]; if (!p) continue;
+      const mine=p.player==='human'; if (mine) humanCount++; else aiCount++;
+      const isSel=S.selected && S.selected[0]===r && S.selected[1]===c;
+      pieces.push({
+        id:p.id, isMine:mine, isAi:!mine, isKing:!!p.king, hintMove:movable.has(r+'-'+c),
+        style:{ position:'absolute', width:'12.5%', height:'12.5%', left:(c*12.5)+'%', top:(r*12.5)+'%', display:'flex', alignItems:'center', justifyContent:'center', transition:'left .28s cubic-bezier(.34,1.1,.4,1), top .28s cubic-bezier(.34,1.1,.4,1)', zIndex:isSel?4:2 },
+        markStyle:{ width:'22%', height:'22%', borderRadius:'3px', background: cb?'#ffffff':'rgba(4,10,18,.42)', boxShadow: cb?'0 0 5px rgba(0,0,0,.75)':'none', transform: mine?'rotate(45deg)':'none' }
+      });
+    }
+    const effects=S.effects.map(fx=>({
+      key:fx.key,
+      style:{ position:'absolute', width:'12.5%', height:'12.5%', left:(fx.c*12.5)+'%', top:(fx.r*12.5)+'%', display:'flex', alignItems:'center', justifyContent:'center', animation:'capPop .45s ease-out forwards', zIndex:5, pointerEvents:'none' },
+      discStyle:{ width:'76%', height:'76%', borderRadius:'50%', background: fx.player==='human'?'radial-gradient(circle at 35% 30%, var(--piece-p1-hi), var(--piece-p1) 68%)':'radial-gradient(circle at 35% 30%, var(--piece-p2-hi), var(--piece-p2) 68%)', boxShadow:'0 0 22px '+(fx.player==='human'?'var(--piece-p1-glow)':'var(--piece-p2-glow)') }
+    }));
+    const pct=Math.max(0, Math.min(100, (S.timeLeft/this.TURN_TIME)*100));
+    const level=Math.round(S.brain.level);
+    const C=2*Math.PI*42;
+    const phases=[['M','Monitor'],['A','Analyze'],['P','Plan'],['E','Execute']].map((x,i)=>{
+      const active=S.phase===i;
+      return { key:x[0], letter:x[0], label:x[1], style:Object.assign({ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'1px', flex:'1', padding:'7px 2px', borderRadius:'9px', border:'1px solid var(--border)', fontWeight:700, transition:'all .15s' }, active ? { background:'var(--accent)', color:'#04121a', borderColor:'transparent', animation:'phaseGlow 1s ease-in-out infinite' } : { background:'var(--surface-2)', color:'var(--muted)' }) };
+    });
+    const diffNoteMap={ adaptive:'The agent scales with what it has learned about you.', easy:'The agent plays loose and forgiving.', hard:'The agent plays its strongest at all times.' };
+    const diffOptions=[['adaptive','Adaptive'],['easy','Easy'],['hard','Hard']].map(x=>{
+      const active=S.difficulty===x[0];
+      return { key:x[0], label:x[1], onClick:()=>this.setDifficulty(x[0]), style:Object.assign({ flex:'1', textAlign:'center', padding:'9px 6px', borderRadius:'9px', fontSize:'13px', fontWeight:600, cursor:'pointer', transition:'all .15s', border:'1px solid var(--border)' }, active ? { background:'var(--accent)', color:'#04121a', borderColor:'transparent' } : { background:'var(--surface-2)', color:'var(--muted)' }) };
+    });
+    const toggleOn=(on)=>({ minWidth:'52px', textAlign:'center', padding:'8px 14px', borderRadius:'20px', fontFamily:'inherit', fontWeight:700, fontSize:'13px', cursor:'pointer', border:'1px solid '+(on?'transparent':'var(--border)'), background: on?'var(--accent)':'var(--surface-2)', color: on?'#04121a':'var(--muted)' });
+    const dur=Math.max(0, Math.floor(((S.endAt||Date.now())-S.startTime)/1000));
+    const durationText=Math.floor(dur/60)+':'+String(dur%60).padStart(2,'0');
+
+    return {
+      rootStyle, cells, pieces, effects,
+      wordmark:'NEON CHECKERS', variantName:T.name, variantTag: v==='grid'?'Grid':'Aurora',
+      onNewGame:()=>this.newGame(), onHint:()=>this.showHint(), onUndo:()=>this.undo(),
+      onToggleMute:()=>this.toggleMute(), onSettings:()=>this.openSettings(),
+      muted:S.muted, notMuted:!S.muted,
+      timeLeft:S.timeLeft<0?0:S.timeLeft,
+      timerBarStyle:{ height:'100%', width:pct+'%', background: S.low?'var(--danger)':'var(--accent)', boxShadow:'0 0 10px '+(S.low?'var(--danger)':'var(--accent)'), borderRadius:'5px', transition:'width 1s linear' },
+      timerNumStyle:{ fontSize:'13px', fontWeight:700, color: S.low?'var(--danger)':'var(--muted)', minWidth:'30px', textAlign:'right', fontVariantNumeric:'tabular-nums' },
+      statusMain: S.thinking?'Agent thinking…':(S.turn==='human'?(S.mustContinue?'Keep jumping!':'Your move'):'Agent’s move'),
+      statusSub: S.thinking?('MAPE-K · '+(S.phaseLabel||'loop')):(S.turn==='human'?'Move a glowing piece':'…'),
+      turnDotStyle:{ width:'11px', height:'11px', borderRadius:'50%', flex:'none', background: S.turn==='human'?'var(--piece-p1)':'var(--piece-p2)', boxShadow:'0 0 10px '+(S.turn==='human'?'var(--piece-p1-glow)':'var(--piece-p2-glow)') },
+      humanCount, aiCount,
+      level, ringDash:String(C), ringOffset:C*(1-level/100), phases,
+      brainGames:S.brain.games, brainMoves:S.brain.moves, agentWins:S.brain.wins, playerWins:S.brain.losses,
+      skillPct:Math.round(this.aiSkill()*100),
+      humanTray:S.humanTray.map((t,i)=>({ key:'ht'+i, isKing:t.king })), aiTray:S.aiTray.map((t,i)=>({ key:'at'+i, isKing:t.king })),
+      statYou:S.humanTray.length, statAgent:S.aiTray.length,
+      isTitle:S.screen==='title', over:S.over, settingsOpen:S.settingsOpen,
+      onStart:()=>this.startGame(),
+      titleBrainText: S.brain.games>0 ? ('The agent knows you '+level+'% · '+S.brain.games+' games played') : 'A fresh agent. It learns as you play.',
+      resultHeadline: S.winner==='human'?'Victory':(S.winner==='ai'?'Defeated':'Draw'),
+      resultSub: S.winner==='human'?'You outplayed the agent.':(S.winner==='ai'?'The agent adapted to you.':'Neither side could break through.'),
+      resultStyle:{ fontSize:'34px', fontWeight:700, letterSpacing:'.5px', color: S.winner==='human'?'var(--piece-p1)':(S.winner==='ai'?'var(--piece-p2)':'var(--muted)'), textShadow:'0 0 26px currentColor' },
+      statMoves:S.moveCount, durationText, statAdapt:level,
+      onRematch:()=>this.newGame(), onHome:()=>this.goTitle(),
+      diffOptions, diffNote:diffNoteMap[S.difficulty],
+      colorblind:S.colorblind, onToggleColorblind:()=>this.toggleColorblind(), onCloseSettings:()=>this.closeSettings(), onResetBrain:()=>this.resetBrain(),
+      soundLabel:S.muted?'Off':'On', cbLabel:S.colorblind?'On':'Off',
+      soundToggleStyle:toggleOn(!S.muted), cbToggleStyle:toggleOn(S.colorblind)
+    };
+  }
+}
+</script>
+</body>
+</html>

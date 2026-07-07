@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neon Checkers — Player vs MAPE-K Agent</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='12' fill='%2322d3ee'/%3E%3Ccircle cx='16' cy='16' r='5.5' fill='none' stroke='%23052b28' stroke-width='2.5'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="stage">
+<div class="app" id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo"><div class="logo-ring"></div></div>
+      <div>
+        <div class="wordmark">NEON CHECKERS</div>
+        <div class="variant-name">Neon Grid</div>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button id="btn-hint" class="icon-btn" title="Hint" aria-label="Hint"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"></path><path d="M10 21h4"></path><path d="M12 3a6 6 0 0 0-4 10.4c.6.6 1 1.3 1 2.1v.5h6v-.5c0-.8.4-1.5 1-2.1A6 6 0 0 0 12 3z"></path></svg></button>
+      <button id="btn-undo" class="icon-btn" title="Undo" aria-label="Undo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7 4 12l5 5"></path><path d="M4 12h11a5 5 0 0 1 0 10h-1"></path></svg></button>
+      <button id="btn-sound" class="icon-btn" title="Sound" aria-label="Toggle sound">
+        <span id="icon-sound-on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path><path d="M18 6a9 9 0 0 1 0 12"></path></svg></span>
+        <span id="icon-sound-off" class="hidden"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"></path><line x1="16" y1="9" x2="21" y2="14"></line><line x1="21" y1="9" x2="16" y2="14"></line></svg></span>
+      </button>
+      <button id="btn-settings" class="icon-btn" title="Settings" aria-label="Settings"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="8" x2="20" y2="8"></line><line x1="4" y1="16" x2="20" y2="16"></line><circle cx="9" cy="8" r="2.2"></circle><circle cx="15" cy="16" r="2.2"></circle></svg></button>
+      <button id="btn-new" class="icon-btn primary" title="New game" aria-label="New game"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"></path><path d="M21 4v5h-5"></path></svg></button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <section class="board-col">
+      <div class="timer-row">
+        <span class="timer-label">Turn timer</span>
+        <div class="timer-track"><div id="timer-bar"></div></div>
+        <span id="timer-num">30s</span>
+      </div>
+      <div class="board-frame">
+        <div class="board-clip">
+          <div id="board" class="board-grid"></div>
+          <div id="piece-layer" class="piece-layer"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="side-col">
+      <div class="status-card">
+        <div id="turn-dot"></div>
+        <div class="status-text">
+          <div id="status-main">Your move</div>
+          <div id="status-sub">Move a glowing piece</div>
+        </div>
+        <div class="counts">
+          <div>You <span class="p1" id="human-count">12</span></div>
+          <div>Agent <span class="p2" id="ai-count">12</span></div>
+        </div>
+      </div>
+
+      <div class="adapt-card">
+        <div class="adapt-head">
+          <div>
+            <div class="adapt-title">Adaptation</div>
+            <div class="adapt-tag">MAPE-K agent</div>
+          </div>
+          <div class="adapt-skill">Skill <b id="skill-pct">18%</b></div>
+        </div>
+        <div class="adapt-body">
+          <div class="ring-wrap">
+            <svg width="104" height="104" viewBox="0 0 104 104">
+              <circle class="track" cx="52" cy="52" r="42" fill="none" stroke-width="9"></circle>
+              <circle class="arc" id="ring-arc" cx="52" cy="52" r="42" fill="none" stroke-width="9"
+                stroke-linecap="round" transform="rotate(-90 52 52)"></circle>
+            </svg>
+            <div class="ring-center">
+              <div class="ring-num"><span id="level-num">0</span><span class="pct">%</span></div>
+              <div class="ring-caption">LEARNED</div>
+            </div>
+          </div>
+          <div class="brain-stats">
+            <div>Games <b id="brain-games">0</b></div>
+            <div>Moves seen <b id="brain-moves">0</b></div>
+            <div>Agent wins <b class="p2" id="agent-wins">0</b></div>
+            <div>Your wins <b class="p1" id="player-wins">0</b></div>
+            <div>Draws <b id="brain-draws">0</b></div>
+          </div>
+        </div>
+        <div class="phase-row" id="phase-row">
+          <div class="phase-chip" data-phase="0" title="Monitor"><div class="letter">M</div><div class="label">Monitor</div></div>
+          <div class="phase-chip" data-phase="1" title="Analyze"><div class="letter">A</div><div class="label">Analyze</div></div>
+          <div class="phase-chip" data-phase="2" title="Plan"><div class="letter">P</div><div class="label">Plan</div></div>
+          <div class="phase-chip" data-phase="3" title="Execute"><div class="letter">E</div><div class="label">Execute</div></div>
+        </div>
+        <div class="mape-live" id="mape-live">
+          <div class="mape-row"><span class="mape-key">Monitor</span><span class="mape-val" id="live-monitor">No events yet</span></div>
+          <div class="mape-row"><span class="mape-key">Analyze</span><span class="mape-val" id="live-analyze">No analysis yet</span></div>
+          <div class="mape-row"><span class="mape-key">Plan</span><span class="mape-val" id="live-plan">No plan yet</span></div>
+          <div class="mape-row"><span class="mape-key">Execute</span><span class="mape-val" id="live-execute">No search yet</span></div>
+          <div class="mape-row"><span class="mape-key">Knowledge</span><span class="mape-val" id="live-knowledge">Baseline</span></div>
+        </div>
+      </div>
+
+      <div class="tray-stack">
+        <div class="tray-card">
+          <div class="tray-head">
+            <span class="tray-label">You captured</span>
+            <span class="tray-count p2" id="stat-you">0</span>
+          </div>
+          <div class="tray" id="human-tray"></div>
+        </div>
+        <div class="tray-card">
+          <div class="tray-head">
+            <span class="tray-label">Agent captured</span>
+            <span class="tray-count p1" id="stat-agent">0</span>
+          </div>
+          <div class="tray" id="ai-tray"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="title-overlay" class="overlay title-overlay">
+    <div class="title-tag">Grid · Player vs Agent</div>
+    <div class="title-word">NEON<br>CHECKERS</div>
+    <div class="title-blurb">Play a MAPE-K agent that watches every move — Monitor, Analyze, Plan, Execute — and fills its Adaptation meter as it learns your style across games.</div>
+    <div id="title-brain">A fresh agent. It learns as you play.</div>
+    <button id="btn-start" class="btn-start">Start game</button>
+  </div>
+
+  <div id="over-overlay" class="overlay modal-overlay hidden">
+    <div class="modal">
+      <div id="result-headline">Victory</div>
+      <div id="result-sub">You outplayed the agent.</div>
+      <div class="result-grid">
+        <div class="result-stat"><div class="num" id="stat-moves">0</div><div class="cap">Moves</div></div>
+        <div class="result-stat"><div class="num" id="stat-duration">0:00</div><div class="cap">Duration</div></div>
+        <div class="result-stat"><div class="num p2" id="stat-you-final">0</div><div class="cap">You took</div></div>
+        <div class="result-stat"><div class="num p1" id="stat-agent-final">0</div><div class="cap">Agent took</div></div>
+        <div class="result-stat wide"><div class="num accent" id="stat-adapt">0%</div><div class="cap">Agent adaptation</div></div>
+      </div>
+      <div class="result-actions">
+        <button id="btn-home" class="btn-secondary">Home</button>
+        <button id="btn-rematch" class="btn-primary">Rematch</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings-overlay" class="overlay modal-overlay settings hidden">
+    <div class="modal settings-modal">
+      <div class="settings-head">
+        <div class="settings-title">Settings</div>
+        <button id="btn-close-settings" class="btn-close" aria-label="Close settings">&times;</button>
+      </div>
+      <div class="settings-caption">Difficulty</div>
+      <div class="diff-row" id="diff-row">
+        <div class="diff-chip" data-diff="adaptive">Adaptive</div>
+        <div class="diff-chip" data-diff="easy">Easy</div>
+        <div class="diff-chip" data-diff="hard">Hard</div>
+      </div>
+      <div id="diff-note">The agent scales with what it has learned about you.</div>
+      <div class="settings-row">
+        <div>
+          <div class="row-title">Sound effects</div>
+          <div class="row-sub">Synth tones for moves &amp; captures</div>
+        </div>
+        <button id="btn-sound-toggle" class="toggle-btn on">On</button>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="row-title">Colorblind cues</div>
+          <div class="row-sub">Shape marks on each piece</div>
+        </div>
+        <button id="btn-cb-toggle" class="toggle-btn">Off</button>
+      </div>
+      <div class="reset-brain-wrap">
+        <button id="btn-reset-brain" class="btn-danger">Reset brain — erase what the agent learned</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script src="engine.js"></script>
+<script src="ai.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>
