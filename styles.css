@@ -4,6 +4,7 @@
 @keyframes hintPulse { 0%,100%{opacity:.35;transform:scale(.92)} 50%{opacity:.9;transform:scale(1.04)} }
 @keyframes phaseGlow { 0%,100%{box-shadow:0 0 0 0 var(--accent)} 50%{box-shadow:0 0 14px 2px var(--accent)} }
 @keyframes floatIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
+@keyframes ghostPulse { 0%,100%{opacity:.16;transform:scale(.9)} 50%{opacity:.4;transform:scale(1.08)} }
 
 * { box-sizing: border-box; }
 
@@ -345,6 +346,30 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .overlay { position: absolute; inset: 0; z-index: 20; }
 .overlay.hidden { display: none; }
+
+/* Decorative echo of the starting position behind the title card's own text
+   — not the real interactive board (that stays fully out of layout flow
+   outside active play; see render()), just a lightweight ambient background
+   so the title screen doesn't feel flat. .title-overlay establishes its own
+   stacking context (z-index:20 via .overlay), so a negative z-index here
+   paints above its dark background but below its normal-flow text/buttons —
+   visible without competing with anything readable. */
+.title-board-glow {
+  position: absolute; z-index: -1; pointer-events: none;
+  left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(320px, 78%); aspect-ratio: 1 / 1;
+}
+.ghost-piece {
+  position: absolute; width: 11%; height: 11%; border-radius: 50%;
+  filter: blur(7px);
+  /* Matches the ghostPulse 0%/100% keyframe so staggered animation-delay
+     doesn't flash pieces in at the browser's default opacity:1/scale(1)
+     before their delay elapses and the animation actually takes over. */
+  opacity: .16; transform: scale(.9);
+  animation: ghostPulse 4.5s ease-in-out infinite;
+}
+.ghost-piece.p1 { background: var(--piece-p1); box-shadow: 0 0 18px var(--piece-p1-glow); }
+.ghost-piece.p2 { background: var(--piece-p2); box-shadow: 0 0 18px var(--piece-p2-glow); }
 
 .title-overlay {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
