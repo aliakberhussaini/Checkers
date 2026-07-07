@@ -225,7 +225,6 @@
   }
 
   function buildBoard() {
-    var files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
     cellEls = [];
     els.board.textContent = '';
     for (var r = 0; r < 8; r++) {
@@ -235,18 +234,6 @@
         cell.className = 'cell' + (((r + c) % 2 === 1) ? ' playable' : '');
         cell.dataset.r = String(r);
         cell.dataset.c = String(c);
-        if (r === 7) {
-          var fl = document.createElement('div');
-          fl.className = 'file-label';
-          fl.textContent = files[c];
-          cell.appendChild(fl);
-        }
-        if (c === 0) {
-          var rl = document.createElement('div');
-          rl.className = 'rank-label';
-          rl.textContent = String(8 - r);
-          cell.appendChild(rl);
-        }
         els.board.appendChild(cell);
         row.push(cell);
       }

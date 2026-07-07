@@ -153,14 +153,6 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .cell.lastmove { box-shadow: inset 0 0 0 3px var(--lastmove); }
 .cell.selected { box-shadow: inset 0 0 0 3px var(--sel), inset 0 0 22px var(--sel); }
 
-.cell .file-label {
-  position: absolute; right: 3px; bottom: 2px; font-size: 8px;
-  color: var(--muted); opacity: .75; pointer-events: none;
-}
-.cell .rank-label {
-  position: absolute; left: 3px; top: 1px; font-size: 8px;
-  color: var(--muted); opacity: .75; pointer-events: none;
-}
 .cell .step-hint {
   width: 26%; height: 26%; border-radius: 50%;
   background: var(--hint); box-shadow: 0 0 10px var(--hint);
