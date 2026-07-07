@@ -354,7 +354,6 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   -webkit-backdrop-filter: blur(4px);
   animation: floatIn .3s ease;
 }
-.title-tag { font-size: 12px; letter-spacing: 3px; color: var(--accent); text-transform: uppercase; }
 .title-word {
   font-size: 46px; font-weight: 700; letter-spacing: 2px; line-height: .98;
   text-shadow: 0 0 30px var(--piece-p1-glow);

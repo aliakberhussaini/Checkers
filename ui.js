@@ -1068,8 +1068,8 @@
     var ins = safeInsights();
     var games = ins && ins.knowledge ? (ins.knowledge.gamesPlayed || 0) : 0;
     els['title-brain'].textContent = games > 0
-      ? 'The agent knows you ' + currentLevel() + '% · ' + games + ' games played'
-      : 'A fresh agent. It learns as you play.';
+      ? "It already knows " + currentLevel() + "% of how you play, across " + games + " games. It's not done watching."
+      : 'It knows nothing about you. Yet.';
   }
 
   /* ------------------------------------------------------------ settings */
