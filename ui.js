@@ -157,7 +157,8 @@
       'mp-panel', 'mp-conn-dot', 'mp-my-name', 'mp-opp-name', 'btn-mp-leave', 'btn-undo',
       'mp-overlay', 'mp-name-step', 'mp-generate-step', 'mp-join-step', 'mp-name-input',
       'mp-code-display', 'mp-generate-status', 'mp-code-input', 'mp-join-status',
-      'btn-pause', 'pause-overlay', 'pause-sub', 'btn-resume', 'btn-quit'];
+      'btn-pause', 'pause-overlay', 'pause-sub', 'btn-resume', 'btn-quit',
+      'topbar', 'layout'];
     for (var i = 0; i < ids.length; i++) els[ids[i]] = $(ids[i]);
 
     if (!E) {
@@ -1127,6 +1128,14 @@
   /* ------------------------------------------------------------ render */
 
   function render() {
+    // The title overlay visually covers the topbar/board completely (it's an
+    // opaque position:absolute layer), but they were still sitting in normal
+    // document flow underneath it, stretching .app (and the whole page) far
+    // taller than the title screen's own content needs. Take them out of
+    // flow entirely while not in play instead of just covering them.
+    els['topbar'].classList.toggle('hidden', screen !== 'play');
+    els['layout'].classList.toggle('hidden', screen !== 'play');
+
     renderTimer();
 
     var humanTurn = screen === 'play' && !over && !paused && !thinking && !committing && state.turn === mySide;

@@ -51,6 +51,11 @@ body.stage {
   position: relative;
   overflow: hidden;
   width: min(720px, 94vw);
+  /* The title/settings/game-over/etc. overlays are position:absolute;inset:0
+     and size themselves off .app's own height. .app's normal-flow content
+     (topbar+board) is hidden outside active play, so without a floor here
+     .app collapses to ~padding and clips whichever overlay is showing. */
+  min-height: 520px;
   padding: 18px;
   border-radius: var(--radius-card);
   background: var(--surface);
