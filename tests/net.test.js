@@ -84,5 +84,23 @@ eq(Net.idFor(1234), 'neonckr-1234', 'idFor: coerces numeric input to string');
     'isLegalWireMove: rejects a move that is legal in a different position');
 })();
 
+// --- friendlyError: every PeerJS error type must become an actionable
+// message, never the raw internal string (this is what surfaced the real
+// "Negotiation of connection to neonckr-4085 failed." bug in the UI). ---
+eq(Net.friendlyError({ type: 'unavailable-id' }), 'that code is already in use — try again', 'friendlyError: unavailable-id');
+eq(Net.friendlyError({ type: 'peer-unavailable' }), 'no game found with that code', 'friendlyError: peer-unavailable');
+(function () {
+  var msg = Net.friendlyError({ type: 'webrtc', message: 'Negotiation of connection to neonckr-4085 failed.' });
+  ok(msg.indexOf('Negotiation') === -1, 'friendlyError: webrtc hides the raw PeerJS internal message');
+  ok(msg.indexOf('network') !== -1 || msg.indexOf('direct connection') !== -1, 'friendlyError: webrtc gives actionable guidance');
+})();
+['network', 'socket-error', 'socket-closed', 'server-error', 'disconnected'].forEach(function (t) {
+  var msg = Net.friendlyError({ type: t, message: 'some internal detail' });
+  ok(msg.indexOf('some internal detail') === -1, 'friendlyError: ' + t + ' hides the raw message');
+});
+eq(Net.friendlyError({ type: 'totally-unknown-type', message: 'raw fallback text' }), 'raw fallback text',
+  'friendlyError: unrecognized type falls back to the raw message (better than nothing)');
+eq(Net.friendlyError(null), 'null', 'friendlyError: handles null without throwing');
+
 console.log('\nnet.test.js: ' + passed + ' passed, ' + failed + ' failed');
 if (failed > 0) process.exit(1);
