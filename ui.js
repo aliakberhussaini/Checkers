@@ -86,6 +86,9 @@
     if (!agent) return null;
     try { return agent.getInsights(); } catch (err) { return null; }
   }
+  function track(event, props) {
+    try { if (typeof Analytics !== 'undefined') Analytics.capture(event, props); } catch (err) { /* analytics never breaks play */ }
+  }
 
   function loadPrefs() {
     try {
@@ -158,7 +161,8 @@
       'mp-overlay', 'mp-name-step', 'mp-generate-step', 'mp-join-step', 'mp-name-input',
       'mp-code-display', 'mp-generate-status', 'mp-code-input', 'mp-join-status',
       'btn-pause', 'pause-overlay', 'pause-sub', 'btn-resume', 'btn-quit',
-      'topbar', 'layout'];
+      'topbar', 'layout', 'btn-share', 'btn-share-result', 'toast',
+      'nps-strip', 'nps-scale', 'btn-nps-dismiss', 'nps-thanks'];
     for (var i = 0; i < ids.length; i++) els[ids[i]] = $(ids[i]);
 
     if (!E) {
@@ -220,6 +224,14 @@
     els['btn-pause'].addEventListener('click', openPause);
     els['btn-resume'].addEventListener('click', resumeGame);
     els['btn-quit'].addEventListener('click', quitGame);
+
+    els['btn-share'].addEventListener('click', shareGame);
+    els['btn-share-result'].addEventListener('click', shareGame);
+    els['nps-scale'].addEventListener('click', function (ev) {
+      var b = ev.target.closest('.nps-btn');
+      if (b) submitNps(Number(b.getAttribute('data-score')));
+    });
+    els['btn-nps-dismiss'].addEventListener('click', dismissNps);
 
     setInterval(onTimerTick, 1000);
 
@@ -389,6 +401,7 @@
     handicappedGame = (difficulty === 'easy');
     updateOpponentLabels();
     safeMonitor({ type: 'gameStart' });
+    track('game_started', { mode: 'agent', difficulty: difficulty });
     sfx('select');
     refreshInsights();
     render();
@@ -405,6 +418,7 @@
     handicappedGame = (difficulty === 'easy');
     updateOpponentLabels();
     safeMonitor({ type: 'gameStart' });
+    track('game_started', { mode: 'agent', difficulty: difficulty });
     sfx('select');
     refreshInsights();
     render();
@@ -435,6 +449,7 @@
     if (mode !== 'solo') return; // undo would desync the two peers' replicated state
     if (screen !== 'play' || over || paused || thinking || committing || mustContinue || !history.length) return;
     if (!state || state.turn !== mySide) return;
+    track('undo_used', { moveCount: moveCount });
     generation++; clearTimers();
     var snap = history.pop();
     state = snap.state;
@@ -761,6 +776,7 @@
 
   function openMultiplayerModal() {
     ensureAudio();
+    track('multiplayer_modal_opened');
     els['mp-name-input'].value = mpName;
     showMpStep('name');
     els['mp-overlay'].classList.remove('hidden');
@@ -781,6 +797,7 @@
     els['mp-code-display'].textContent = code;
     els['mp-generate-status'].textContent = 'Waiting for your opponent to join…';
     showMpStep('generate');
+    track('multiplayer_host_started');
     cancelNetSession();
     netSession = new Net.Session({
       onOpen: function (theirName) {
@@ -806,6 +823,7 @@
     mpName = Net.sanitizeName(els['mp-name-input'].value);
     savePrefs();
     els['mp-join-status'].textContent = 'Connecting…';
+    track('multiplayer_join_attempted');
     cancelNetSession();
     netSession = new Net.Session({
       onOpen: function (theirName) {
@@ -837,12 +855,14 @@
     var dot = els['mp-conn-dot'];
     if (dot) dot.classList.remove('off');
     updateOpponentLabels();
+    track('game_started', { mode: 'friend', side: side === E.RED ? 'host' : 'guest' });
     sfx('select');
     render();
   }
 
   function leaveMultiplayer() {
     if (netSession) {
+      track('multiplayer_left');
       try { netSession.send({ type: 'leave' }); } catch (err) {}
       netSession.close();
       netSession = null;
@@ -910,7 +930,137 @@
     els['stat-agent-final'].textContent = String(trays.ai.length);
     els['stat-adapt'].textContent = currentLevel() + '%';
     els['over-overlay'].classList.remove('hidden');
+    track('game_ended', {
+      mode: mode,
+      result: (w === mySide) ? 'win' : (w === 'draw' ? 'draw' : 'loss'),
+      quit: !!quit,
+      moves: moveCount,
+      durationSec: Math.max(0, Math.floor((endAt - startTime) / 1000)),
+      difficulty: (mode === 'solo') ? difficulty : undefined,
+      handicapped: (mode === 'solo') ? handicappedGame : undefined
+    });
+    els['nps-strip'].classList.add('hidden');
+    els['nps-thanks'].classList.add('hidden');
+    maybeShowNps();
     render();
+  }
+
+  /* ------------------------------------------------------------ NPS survey */
+
+  var NPS_KEY = 'checkers-nps-state';
+  var NPS_TRIGGER_GAMES = [1, 4, 9]; // ask after the 1st, 4th, and 9th completed game
+  var NPS_MAX_DISMISSALS = 2;
+  var npsState = null;
+
+  function loadNpsState() {
+    try {
+      var raw = localStorage.getItem(NPS_KEY);
+      if (raw) {
+        var p = JSON.parse(raw);
+        return {
+          submitted: !!p.submitted,
+          dismissedCount: Number.isFinite(p.dismissedCount) ? p.dismissedCount : 0,
+          gamesSeen: Number.isFinite(p.gamesSeen) ? p.gamesSeen : 0
+        };
+      }
+    } catch (err) { /* corrupt/unavailable storage falls back to defaults */ }
+    return { submitted: false, dismissedCount: 0, gamesSeen: 0 };
+  }
+  function saveNpsState() {
+    try { localStorage.setItem(NPS_KEY, JSON.stringify(npsState)); } catch (err) {}
+  }
+
+  // Called once per completed game (win, loss, draw, or quit) to decide
+  // whether this is one of the few moments we ask for gameplay feedback.
+  function maybeShowNps() {
+    if (!npsState) npsState = loadNpsState();
+    npsState.gamesSeen++;
+    saveNpsState();
+    if (npsState.submitted || npsState.dismissedCount >= NPS_MAX_DISMISSALS) return;
+    if (NPS_TRIGGER_GAMES.indexOf(npsState.gamesSeen) === -1) return;
+    els['nps-strip'].classList.remove('hidden');
+    track('nps_shown', { gamesSeen: npsState.gamesSeen });
+  }
+  function submitNps(score) {
+    if (!npsState) npsState = loadNpsState();
+    npsState.submitted = true;
+    saveNpsState();
+    var category = score >= 9 ? 'promoter' : (score >= 7 ? 'passive' : 'detractor');
+    track('nps_submitted', { score: score, category: category, gamesSeen: npsState.gamesSeen });
+    els['nps-strip'].classList.add('hidden');
+    els['nps-thanks'].classList.remove('hidden');
+  }
+  function dismissNps() {
+    if (!npsState) npsState = loadNpsState();
+    npsState.dismissedCount++;
+    saveNpsState();
+    track('nps_dismissed', { gamesSeen: npsState.gamesSeen, dismissedCount: npsState.dismissedCount });
+    els['nps-strip'].classList.add('hidden');
+  }
+
+  /* ------------------------------------------------------------ share */
+
+  var toastTimer = null;
+  function showToast(msg) {
+    var t = els.toast;
+    t.textContent = msg;
+    t.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2200);
+  }
+
+  function shareText() {
+    if (over) {
+      if (winnerSide === mySide) return 'I just beat a MAPE-K learning AI at Neon Checkers. Think you can do better?';
+      if (winnerSide === 'draw') return 'Just drew with a MAPE-K learning AI at Neon Checkers — it studies how you play. Try it:';
+      return 'This MAPE-K agent in Neon Checkers is studying how I play, and it is winning. Can you beat it?';
+    }
+    return 'Play Neon Checkers — a checkers game with a MAPE-K agent that learns your style and adapts to beat you.';
+  }
+
+  function copyLink() {
+    var url = location.href;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(url);
+    }
+    // Older-browser fallback: a temporary offscreen textarea + execCommand.
+    return new Promise(function (resolve, reject) {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        ok ? resolve() : reject(new Error('execCommand copy returned false'));
+      } catch (err) { reject(err); }
+    });
+  }
+
+  function shareGame() {
+    ensureAudio();
+    var context = over ? 'result' : 'topbar';
+    track('share_clicked', { context: context, mode: mode });
+    var payload = { title: 'Neon Checkers', text: shareText(), url: location.href };
+    if (navigator.share) {
+      navigator.share(payload).then(function () {
+        track('share_completed', { context: context, method: 'native' });
+      }).catch(function (err) {
+        if (err && err.name === 'AbortError') { track('share_dismissed', { context: context, method: 'native' }); return; }
+        track('share_failed', { context: context, method: 'native', error: String(err && err.message || err) });
+      });
+      return;
+    }
+    copyLink().then(function () {
+      showToast('Link copied — paste it anywhere!');
+      track('share_completed', { context: context, method: 'copy' });
+    }).catch(function (err) {
+      showToast('Could not copy the link.');
+      track('share_failed', { context: context, method: 'copy', error: String(err && err.message || err) });
+    });
   }
 
   /* ------------------------------------------------------------ hint / timer */
@@ -920,6 +1070,7 @@
     ensureAudio();
     var legal = E.legalMoves(state);
     if (!legal.length) return;
+    track('hint_used', { moveCount: moveCount });
     if (!hintAgent && AIRoot) {
       try { hintAgent = new (AIRoot.MapeKAgent || AIRoot)({ storage: 'memory' }); } catch (err) { hintAgent = null; }
     }
@@ -981,6 +1132,7 @@
     }
     els['pause-sub'].textContent = sub;
     els['pause-overlay'].classList.remove('hidden');
+    track('game_paused', { mode: mode });
     sfx('select');
     render();
   }
@@ -989,6 +1141,7 @@
     if (!paused) return;
     paused = false;
     els['pause-overlay'].classList.add('hidden');
+    track('game_resumed', { mode: mode });
     sfx('select');
     render();
   }
@@ -1100,11 +1253,13 @@
     muted = !muted;
     savePrefs();
     applyPrefsToUI();
+    track('sound_toggled', { muted: muted });
   }
   function toggleColorblind() {
     colorblind = !colorblind;
     savePrefs();
     applyPrefsToUI();
+    track('colorblind_toggled', { colorblind: colorblind });
   }
   function setDifficulty(d) {
     if (d !== 'easy' && d !== 'hard' && d !== 'adaptive') return;
@@ -1115,6 +1270,7 @@
     savePrefs();
     applyPrefsToUI();
     refreshInsights();
+    track('difficulty_changed', { difficulty: d });
   }
   function resetBrain() {
     if (!agent) return;
@@ -1123,6 +1279,7 @@
     refreshInsights();
     updateTitleBrain();
     sfx('select');
+    track('reset_brain_clicked');
   }
 
   /* ------------------------------------------------------------ render */
