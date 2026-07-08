@@ -1,0 +1,5 @@
+{
+  "_comment": "Copy this file to analytics.local.json (gitignored, never committed) and paste your own PostHog Project API key below. Get one free at https://posthog.com — Project Settings -> Project API key.",
+  "key": "phc_REPLACE_WITH_YOUR_POSTHOG_PROJECT_API_KEY",
+  "host": "https://us.i.posthog.com"
+}

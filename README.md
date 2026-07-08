@@ -180,18 +180,31 @@ side sees "Opponent disconnected" and the match ends.
 ## Analytics, NPS survey & Share
 
 **Analytics (`analytics.js`)** is a thin wrapper around
-[PostHog](https://posthog.com) (free tier: 1M events/month). Until a project
-key is configured it does nothing but log each event to the console — the
-game behaves identically either way, and analytics can never throw an error
-that breaks play (every call is wrapped in `try`/`catch`).
+[PostHog](https://posthog.com) (free tier: 1M events/month). Until it's
+configured it does nothing but log each event to the console — the game
+behaves identically either way, and analytics can never throw an error that
+breaks play (every call is wrapped in `try`/`catch`).
 
-To enable it: create a free project at posthog.com, copy its **Project API
-key** from Project Settings, and paste it into the `POSTHOG_KEY` constant at
-the top of `analytics.js` (set `POSTHOG_HOST` to `https://eu.i.posthog.com`
-instead if your project is on PostHog's EU cloud). No build step or npm
-install is involved — the SDK itself loads asynchronously from PostHog's own
-CDN at runtime, the same `array.js` bundle their official install snippet
-injects.
+**The project key is never committed to this repo.** It's read at runtime
+from `analytics.local.json`, which is listed in `.gitignore` and only ever
+exists on your own machine:
+
+```sh
+cp analytics.local.example.json analytics.local.json
+# then edit analytics.local.json and paste your own PostHog "Project API key"
+# (free at posthog.com -> Project Settings -> Project API key); the "host"
+# field defaults to PostHog's US cloud — change it to https://eu.i.posthog.com
+# if your project is on their EU cloud instead.
+```
+
+No build step or npm install is involved: `analytics.js` fetches that local
+JSON file itself at page load (a plain same-origin `fetch`, not a `<script>`
+tag, so a missing file produces no console noise), and if a real key is
+present it loads the PostHog SDK asynchronously from PostHog's own CDN — the
+same `array.js` bundle their official install snippet injects. Over `file://`
+the fetch is blocked by the browser's own CORS policy for local files, so
+solo play stays exactly as offline as before regardless of whether you've
+configured a key; analytics only ever activates when served over `http(s)://`.
 
 Events captured: `game_started`, `game_ended` (mode, result, moves, duration,
 quit flag), `hint_used`, `undo_used`, `difficulty_changed`, `sound_toggled`,

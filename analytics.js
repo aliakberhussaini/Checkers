@@ -1,54 +1,60 @@
-/* Thin PostHog wrapper. Loads the SDK asynchronously from PostHog's own CDN
- * (the same "array.js" bundle their official inline snippet injects — see
- * https://posthog.com/docs/libraries/js) and queues capture() calls made
- * before it finishes loading. If no project key is configured, every call
- * just logs to the console instead: the game behaves identically either way,
- * analytics is additive and can never break play (see try/catch in capture).
- *
- * To enable real capture: create a free project at https://posthog.com,
- * copy its "Project API key" from Project Settings, and paste it below.
+/* Thin PostHog wrapper. The real project key is NEVER committed to this repo:
+ * it's read at runtime from "analytics.local.json", a gitignored file that
+ * only ever exists on your own machine (see README "Analytics" for setup).
+ * Until that file exists with a real key, every capture() call just logs to
+ * the console instead — the game behaves identically either way, and
+ * analytics is additive and can never break play (every call is wrapped in
+ * try/catch, and fetch() failures, unlike a <script>/<img> 404, produce no
+ * browser console noise on their own).
  */
 (function (global) {
   'use strict';
 
-  var POSTHOG_KEY = 'phc_REPLACE_WITH_YOUR_POSTHOG_PROJECT_API_KEY';
-  var POSTHOG_HOST = 'https://us.i.posthog.com'; // EU cloud project? use https://eu.i.posthog.com
+  var DEFAULT_HOST = 'https://us.i.posthog.com'; // EU cloud project? override "host" in analytics.local.json
+  var LOCAL_CONFIG_URL = 'analytics.local.json';
 
-  var queue = [];
-  var ready = false;
+  var key = null;
+  var host = DEFAULT_HOST;
+  var pending = [];        // capture() calls made before we know the outcome
+  var outcome = null;      // null (deciding) | 'noop' (no key found) | 'live' (key found)
+  var sdkReady = false;    // outcome === 'live' AND posthog.init() has run
 
-  function configured() {
-    return typeof POSTHOG_KEY === 'string' && POSTHOG_KEY.indexOf('REPLACE_WITH') === -1;
+  function configured() { return outcome === 'live'; }
+
+  function drain() {
+    if (outcome === 'noop') {
+      while (pending.length) {
+        var q = pending.shift();
+        console.debug('[analytics:noop]', q[0], q[1]);
+      }
+    } else if (outcome === 'live' && sdkReady) {
+      while (pending.length) {
+        var q2 = pending.shift();
+        try { global.posthog.capture(q2[0], q2[1]); } catch (e) { /* never break the game */ }
+      }
+    }
+    // else: still waiting on the config fetch, or the key is known but the
+    // SDK script hasn't finished loading yet — leave pending as-is; drain()
+    // runs again from the fetch .then() below or from the script's onload.
   }
 
-  function flush() {
-    while (queue.length) {
-      var q = queue.shift();
-      try { global.posthog.capture(q[0], q[1]); } catch (e) { /* never break the game */ }
-    }
-  }
-
-  function init() {
-    if (!configured()) {
-      console.info('[analytics] No PostHog project key set (see README "Analytics") — events log to the console only.');
-      return;
-    }
+  function loadSdk() {
     try {
       // Same transform PostHog's own inline snippet applies to derive the
       // asset CDN host from api_host (".i.posthog.com" -> "-assets.i.posthog.com").
-      var assetsHost = POSTHOG_HOST.replace('.i.posthog.com', '-assets.i.posthog.com');
+      var assetsHost = host.replace('.i.posthog.com', '-assets.i.posthog.com');
       var script = document.createElement('script');
       script.src = assetsHost + '/static/array.js';
       script.async = true;
       script.onload = function () {
         try {
-          global.posthog.init(POSTHOG_KEY, {
-            api_host: POSTHOG_HOST,
+          global.posthog.init(key, {
+            api_host: host,
             capture_pageview: true,
             person_profiles: 'identified_only'
           });
-          ready = true;
-          flush();
+          sdkReady = true;
+          drain();
         } catch (e) { /* never break the game */ }
       };
       script.onerror = function () {
@@ -58,11 +64,31 @@
     } catch (e) { /* never break the game */ }
   }
 
+  function init() {
+    var request;
+    try { request = fetch(LOCAL_CONFIG_URL, { cache: 'no-store' }); }
+    catch (e) { request = Promise.reject(e); }
+    Promise.resolve(request)
+      .then(function (res) { return (res && res.ok) ? res.json() : null; })
+      .catch(function () { return null; })
+      .then(function (cfg) {
+        if (cfg && typeof cfg.key === 'string' && cfg.key && cfg.key.indexOf('REPLACE_WITH') === -1) {
+          key = cfg.key;
+          if (typeof cfg.host === 'string' && cfg.host) host = cfg.host;
+          outcome = 'live';
+          loadSdk();
+        } else {
+          outcome = 'noop';
+          console.info('[analytics] No local PostHog key found (see README "Analytics") — events log to the console only.');
+        }
+        drain();
+      });
+  }
+
   function capture(event, props) {
     try {
-      if (!configured()) { console.debug('[analytics:noop]', event, props || {}); return; }
-      if (ready && global.posthog) global.posthog.capture(event, props || {});
-      else queue.push([event, props || {}]);
+      pending.push([event, props || {}]);
+      drain();
     } catch (e) { /* never break the game */ }
   }
 
