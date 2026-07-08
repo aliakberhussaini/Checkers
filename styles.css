@@ -541,26 +541,29 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);
   text-align: center;
 }
-.nps-question { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
-.nps-scale { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; }
+.nps-question { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+.nps-scale { display: flex; gap: 8px; justify-content: center; }
 .nps-btn {
-  width: 26px; height: 26px; border-radius: 8px; padding: 0;
-  font-size: 11px; font-weight: 700; cursor: pointer;
-  border: 1px solid var(--border); background: var(--surface-2); color: var(--muted);
+  width: 44px; height: 44px; border-radius: 50%; padding: 0;
+  font-size: 22px; line-height: 1; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface-2);
+  transition: transform .12s ease, border-color .12s ease, background .12s ease;
 }
-.nps-btn:hover { border-color: var(--accent); color: var(--accent); }
-.nps-scale-labels {
-  display: flex; justify-content: space-between; margin-top: 6px;
-  font-size: 9px; color: var(--muted); letter-spacing: .3px;
-}
+.nps-btn:hover { border-color: var(--accent); background: var(--surface); transform: scale(1.12); }
 .nps-dismiss {
-  margin-top: 10px; background: none; border: none; color: var(--muted);
+  margin-top: 12px; background: none; border: none; color: var(--muted);
   font-size: 11px; text-decoration: underline; cursor: pointer; padding: 0;
 }
 .nps-thanks {
   margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);
   font-size: 13px; color: var(--accent); font-weight: 600;
 }
+.nps-share-prompt {
+  margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);
+  text-align: center;
+}
+.nps-share-text { font-size: 13px; color: var(--text); margin-bottom: 12px; }
+.nps-share-prompt .btn-primary { flex: none; padding: 10px 28px; }
 
 .toast {
   position: fixed; left: 50%; bottom: 28px; z-index: 30;

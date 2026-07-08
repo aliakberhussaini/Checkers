@@ -217,14 +217,17 @@ PII-related is ever sent — only interaction and outcome metadata.
 
 **NPS survey**: after the 1st, 4th, and 9th completed game (win, loss, draw,
 or quit — tracked in `localStorage['checkers-nps-state']`), the game-over
-modal shows a standard 0–10 "how likely are you to recommend this to a
-friend" scale under the result stats. Submitting is recorded as
-`nps_submitted` with a derived `category` (`promoter` 9–10, `passive` 7–8,
-`detractor` 0–6). "Not now" is tracked as `nps_dismissed`; after 2 dismissals
-(or one submission) it stops asking.
+modal shows a 5-point smiley scale ("How are you enjoying the gameplay?" —
+😞 🙁 😐 🙂 😄) under the result stats. Submitting is recorded as
+`nps_submitted` with a derived `sentiment` (`happy` for 🙂/😄, `neutral` for
+😐, `unhappy` for 🙁/😞). A `happy` rating immediately swaps the strip for a
+one-tap **Share** prompt ("Glad you're enjoying it! Share it with a
+friend?") instead of a plain thank-you. "Not now" is tracked as
+`nps_dismissed`; after 2 dismissals (or one submission) it stops asking.
 
-**Share**: the topbar's share icon and the game-over modal's **Share**
-button both call the same handler. On browsers with the Web Share API
+**Share**: the topbar's share icon, the game-over modal's **Share** button,
+and the post-NPS share prompt all call the same handler. On browsers with
+the Web Share API
 (most mobile browsers, and increasingly desktop Chrome/Edge), it opens the
 OS's native share sheet — Messages, WhatsApp, Mail, whatever the user has —
 pre-filled with a short pitch and the page's own URL. Everywhere else it

@@ -162,7 +162,7 @@
       'mp-code-display', 'mp-generate-status', 'mp-code-input', 'mp-join-status',
       'btn-pause', 'pause-overlay', 'pause-sub', 'btn-resume', 'btn-quit',
       'topbar', 'layout', 'btn-share', 'btn-share-result', 'toast',
-      'nps-strip', 'nps-scale', 'btn-nps-dismiss', 'nps-thanks'];
+      'nps-strip', 'nps-scale', 'btn-nps-dismiss', 'nps-thanks', 'nps-share-prompt', 'btn-nps-share'];
     for (var i = 0; i < ids.length; i++) els[ids[i]] = $(ids[i]);
 
     if (!E) {
@@ -232,6 +232,11 @@
       if (b) submitNps(Number(b.getAttribute('data-score')));
     });
     els['btn-nps-dismiss'].addEventListener('click', dismissNps);
+    els['btn-nps-share'].addEventListener('click', function () {
+      els['nps-share-prompt'].classList.add('hidden');
+      els['nps-thanks'].classList.remove('hidden');
+      shareGame();
+    });
 
     setInterval(onTimerTick, 1000);
 
@@ -941,6 +946,7 @@
     });
     els['nps-strip'].classList.add('hidden');
     els['nps-thanks'].classList.add('hidden');
+    els['nps-share-prompt'].classList.add('hidden');
     maybeShowNps();
     render();
   }
@@ -985,10 +991,14 @@
     if (!npsState) npsState = loadNpsState();
     npsState.submitted = true;
     saveNpsState();
-    var category = score >= 9 ? 'promoter' : (score >= 7 ? 'passive' : 'detractor');
-    track('nps_submitted', { score: score, category: category, gamesSeen: npsState.gamesSeen });
+    var sentiment = score >= 4 ? 'happy' : (score === 3 ? 'neutral' : 'unhappy');
+    track('nps_submitted', { score: score, sentiment: sentiment, gamesSeen: npsState.gamesSeen });
     els['nps-strip'].classList.add('hidden');
-    els['nps-thanks'].classList.remove('hidden');
+    if (sentiment === 'happy') {
+      els['nps-share-prompt'].classList.remove('hidden');
+    } else {
+      els['nps-thanks'].classList.remove('hidden');
+    }
   }
   function dismissNps() {
     if (!npsState) npsState = loadNpsState();

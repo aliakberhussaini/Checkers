@@ -190,24 +190,21 @@
         <button id="btn-rematch" class="btn-primary">Rematch</button>
       </div>
       <div id="nps-strip" class="nps-strip hidden">
-        <div class="nps-question">How likely are you to recommend this game to a friend?</div>
+        <div class="nps-question">How are you enjoying the gameplay?</div>
         <div class="nps-scale" id="nps-scale">
-          <button class="nps-btn" data-score="0">0</button>
-          <button class="nps-btn" data-score="1">1</button>
-          <button class="nps-btn" data-score="2">2</button>
-          <button class="nps-btn" data-score="3">3</button>
-          <button class="nps-btn" data-score="4">4</button>
-          <button class="nps-btn" data-score="5">5</button>
-          <button class="nps-btn" data-score="6">6</button>
-          <button class="nps-btn" data-score="7">7</button>
-          <button class="nps-btn" data-score="8">8</button>
-          <button class="nps-btn" data-score="9">9</button>
-          <button class="nps-btn" data-score="10">10</button>
+          <button class="nps-btn" data-score="1" title="Not enjoying it" aria-label="Not enjoying it">😞</button>
+          <button class="nps-btn" data-score="2" title="Could be better" aria-label="Could be better">🙁</button>
+          <button class="nps-btn" data-score="3" title="It's okay" aria-label="It's okay">😐</button>
+          <button class="nps-btn" data-score="4" title="Enjoying it" aria-label="Enjoying it">🙂</button>
+          <button class="nps-btn" data-score="5" title="Loving it" aria-label="Loving it">😄</button>
         </div>
-        <div class="nps-scale-labels"><span>Not likely</span><span>Very likely</span></div>
         <button id="btn-nps-dismiss" class="nps-dismiss">Not now</button>
       </div>
       <div id="nps-thanks" class="nps-thanks hidden">Thanks for the feedback!</div>
+      <div id="nps-share-prompt" class="nps-share-prompt hidden">
+        <div class="nps-share-text">Glad you're enjoying it! Share it with a friend?</div>
+        <button id="btn-nps-share" class="btn-primary">Share</button>
+      </div>
     </div>
   </div>
 
