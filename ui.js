@@ -1028,12 +1028,11 @@
     return 'Play Neon Checkers — a checkers game with a MAPE-K agent that learns your style and adapts to beat you.';
   }
 
-  function copyLink() {
-    var url = location.href;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      return navigator.clipboard.writeText(url);
-    }
-    // Older-browser fallback: a temporary offscreen textarea + execCommand.
+  // Older-browser fallback, and also the retry path when the Clipboard API
+  // exists but rejects at runtime (e.g. "document is not focused" — a real
+  // condition, not just a feature-support gap): a temporary offscreen
+  // textarea + execCommand.
+  function execCommandCopy(url) {
     return new Promise(function (resolve, reject) {
       try {
         var ta = document.createElement('textarea');
@@ -1048,6 +1047,14 @@
         ok ? resolve() : reject(new Error('execCommand copy returned false'));
       } catch (err) { reject(err); }
     });
+  }
+
+  function copyLink() {
+    var url = location.href;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(url).catch(function () { return execCommandCopy(url); });
+    }
+    return execCommandCopy(url);
   }
 
   function fallbackCopy(context) {
