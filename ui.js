@@ -1050,6 +1050,16 @@
     });
   }
 
+  function fallbackCopy(context) {
+    copyLink().then(function () {
+      showToast('Link copied — paste it anywhere!');
+      track('share_completed', { context: context, method: 'copy' });
+    }).catch(function (err) {
+      showToast('Could not copy the link.');
+      track('share_failed', { context: context, method: 'copy', error: String(err && err.message || err) });
+    });
+  }
+
   function shareGame() {
     ensureAudio();
     var context = over ? 'result' : 'topbar';
@@ -1060,17 +1070,15 @@
         track('share_completed', { context: context, method: 'native' });
       }).catch(function (err) {
         if (err && err.name === 'AbortError') { track('share_dismissed', { context: context, method: 'native' }); return; }
+        // Native share exists but failed for a non-abort reason (e.g. missing
+        // user-activation, a permissions-policy block) — still get the user
+        // a usable outcome instead of the button silently doing nothing.
         track('share_failed', { context: context, method: 'native', error: String(err && err.message || err) });
+        fallbackCopy(context);
       });
       return;
     }
-    copyLink().then(function () {
-      showToast('Link copied — paste it anywhere!');
-      track('share_completed', { context: context, method: 'copy' });
-    }).catch(function (err) {
-      showToast('Could not copy the link.');
-      track('share_failed', { context: context, method: 'copy', error: String(err && err.message || err) });
-    });
+    fallbackCopy(context);
   }
 
   /* ------------------------------------------------------------ hint / timer */
