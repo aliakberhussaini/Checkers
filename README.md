@@ -11,6 +11,10 @@ dependencies. Multiplayer additionally needs a network connection and the
 vendored [PeerJS](https://peerjs.com) library (`vendor/peerjs.min.js`, fetched
 once from the npm registry and committed into this repo) — see the
 **Multiplayer** section for why that's the one exception to "zero dependencies".
+Optional, opt-in usage analytics (`analytics.js`) is the one *other* exception
+— see **Analytics, NPS survey & Share** below; it no-ops entirely until a
+PostHog project key is configured, so the "zero dependencies" claim for solo
+play holds by default.
 
 ## How to run
 
@@ -45,13 +49,15 @@ non-zero on any failure.
 ## Architecture map
 
 ```
-index.html            page shell; loads engine.js -> ai.js -> vendor/peerjs.min.js -> net.js -> ui.js
+index.html            page shell; loads analytics.js -> engine.js -> ai.js -> vendor/peerjs.min.js -> net.js -> ui.js
 styles.css            "Neon Grid" theme, frosted-glass panels, animations
+analytics.js          global Analytics — thin PostHog wrapper; no-ops until configured
 engine.js             global CheckersEngine — pure rules engine, no AI, no DOM
 ai.js                 global CheckersAI — the MAPE-K agent (five explicit classes)
 net.js                global NetCheckers — multiplayer code/name validation + PeerJS wrapper
 vendor/peerjs.min.js  vendored third-party library (WebRTC signaling), not authored here
-ui.js                 board rendering, input, animation, MAPE-K live panel, multiplayer flow
+ui.js                 board rendering, input, animation, MAPE-K live panel, multiplayer flow,
+                      NPS survey, and the Share button
 tests/
   engine.test.js      engine unit tests
   ai.test.js          agent learning/adaptation tests
@@ -170,6 +176,64 @@ values on PeerJS's public broker — collisions with unrelated PeerJS users
 elsewhere are unlikely but not impossible for a casual feature like this.
 There's no reconnect-after-drop; if a peer disconnects mid-game the other
 side sees "Opponent disconnected" and the match ends.
+
+## Analytics, NPS survey & Share
+
+**Analytics (`analytics.js`)** is a thin wrapper around
+[PostHog](https://posthog.com) (free tier: 1M events/month). Until it's
+configured it does nothing but log each event to the console — the game
+behaves identically either way, and analytics can never throw an error that
+breaks play (every call is wrapped in `try`/`catch`).
+
+**The project key is never committed to this repo.** It's read at runtime
+from `analytics.local.json`, which is listed in `.gitignore` and only ever
+exists on your own machine:
+
+```sh
+cp analytics.local.example.json analytics.local.json
+# then edit analytics.local.json and paste your own PostHog "Project API key"
+# (free at posthog.com -> Project Settings -> Project API key); the "host"
+# field defaults to PostHog's US cloud — change it to https://eu.i.posthog.com
+# if your project is on their EU cloud instead.
+```
+
+No build step or npm install is involved: `analytics.js` fetches that local
+JSON file itself at page load (a plain same-origin `fetch`, not a `<script>`
+tag, so a missing file produces no console noise), and if a real key is
+present it loads the PostHog SDK asynchronously from PostHog's own CDN — the
+same `array.js` bundle their official install snippet injects. Over `file://`
+the fetch is blocked by the browser's own CORS policy for local files, so
+solo play stays exactly as offline as before regardless of whether you've
+configured a key; analytics only ever activates when served over `http(s)://`.
+
+Events captured: `game_started`, `game_ended` (mode, result, moves, duration,
+quit flag), `hint_used`, `undo_used`, `difficulty_changed`, `sound_toggled`,
+`colorblind_toggled`, `reset_brain_clicked`, `game_paused` / `game_resumed`,
+`multiplayer_modal_opened` / `_host_started` / `_join_attempted` / `_left`,
+`share_clicked` / `_completed` / `_dismissed` / `_failed`, and
+`nps_shown` / `_submitted` / `_dismissed`. Page views are captured
+automatically by PostHog once configured. Nothing board-state- or
+PII-related is ever sent — only interaction and outcome metadata.
+
+**NPS survey**: after the 1st, 4th, and 9th completed game (win, loss, draw,
+or quit — tracked in `localStorage['checkers-nps-state']`), the game-over
+modal shows a 5-point smiley scale ("How are you enjoying the gameplay?" —
+😞 🙁 😐 🙂 😄) under the result stats. Submitting is recorded as
+`nps_submitted` with a derived `sentiment` (`happy` for 🙂/😄, `neutral` for
+😐, `unhappy` for 🙁/😞). A `happy` rating immediately swaps the strip for a
+one-tap **Share** prompt ("Glad you're enjoying it! Share it with a
+friend?") instead of a plain thank-you. "Not now" is tracked as
+`nps_dismissed`; after 2 dismissals (or one submission) it stops asking.
+
+**Share**: the topbar's share icon, the game-over modal's **Share** button,
+and the post-NPS share prompt all call the same handler. On browsers with
+the Web Share API
+(most mobile browsers, and increasingly desktop Chrome/Edge), it opens the
+OS's native share sheet — Messages, WhatsApp, Mail, whatever the user has —
+pre-filled with a short pitch and the page's own URL. Everywhere else it
+copies the URL to the clipboard and shows a small toast ("Link copied —
+paste it anywhere!"), with an `execCommand`-based fallback for older
+browsers without the Clipboard API.
 
 ## Where knowledge lives, and how to reset it
 
