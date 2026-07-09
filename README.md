@@ -185,9 +185,18 @@ configured it does nothing but log each event to the console — the game
 behaves identically either way, and analytics can never throw an error that
 breaks play (every call is wrapped in `try`/`catch`).
 
-**The project key is never committed to this repo.** It's read at runtime
-from `analytics.local.json`, which is listed in `.gitignore` and only ever
-exists on your own machine:
+**The key is read at runtime from a JSON file, never from source, via one of
+two files** (`analytics.js` tries them in this order):
+
+- `analytics.local.json` — a personal override for local testing (e.g.
+  pointing your own dev testing at a separate/throwaway PostHog project).
+  Listed in `.gitignore`; only ever exists on your own machine.
+- `analytics.config.json` — the real, **committed** production key. This is
+  intentionally checked in: a PostHog *project* API key (the `phc_...` kind)
+  is a public, write-only key by design — safe to ship in client-side code
+  the same way a Google Analytics ID sits in plain HTML. It can create
+  events but cannot read or modify account data. (A PostHog *personal* API
+  key, `phx_...`, is the secret one — that must never appear in this repo.)
 
 ```sh
 cp analytics.local.example.json analytics.local.json
@@ -197,23 +206,34 @@ cp analytics.local.example.json analytics.local.json
 # if your project is on their EU cloud instead.
 ```
 
-No build step or npm install is involved: `analytics.js` fetches that local
-JSON file itself at page load (a plain same-origin `fetch`, not a `<script>`
-tag, so a missing file produces no console noise), and if a real key is
-present it loads the PostHog SDK asynchronously from PostHog's own CDN — the
-same `array.js` bundle their official install snippet injects. Over `file://`
-the fetch is blocked by the browser's own CORS policy for local files, so
-solo play stays exactly as offline as before regardless of whether you've
-configured a key; analytics only ever activates when served over `http(s)://`.
+No build step or npm install is involved: `analytics.js` fetches each file
+itself at page load (a plain same-origin `fetch`, not a `<script>` tag, so a
+missing file produces no console noise), and once a real key is found it
+loads the PostHog SDK asynchronously from PostHog's own CDN — the same
+`array.js` bundle their official install snippet injects. Over `file://` the
+fetch is blocked by the browser's own CORS policy for local files, so
+double-clicking `index.html` stays exactly as offline as before regardless
+of configuration; analytics only ever activates when served over
+`http(s)://`.
+
+**Capture is deliberately scoped to just this game's own events.** PostHog's
+SDK defaults turn on session recording, DOM autocapture, dead-click capture,
+and surveys — all disabled explicitly in `analytics.js`'s `posthog.init(...)`
+call, so nothing beyond the events below (plus a plain pageview) is ever
+sent. No session replay, no click/DOM capture, no board state, no PII.
 
 Events captured: `game_started`, `game_ended` (mode, result, moves, duration,
 quit flag), `hint_used`, `undo_used`, `difficulty_changed`, `sound_toggled`,
 `colorblind_toggled`, `reset_brain_clicked`, `game_paused` / `game_resumed`,
 `multiplayer_modal_opened` / `_host_started` / `_join_attempted` / `_left`,
 `share_clicked` / `_completed` / `_dismissed` / `_failed`, and
-`nps_shown` / `_submitted` / `_dismissed`. Page views are captured
-automatically by PostHog once configured. Nothing board-state- or
-PII-related is ever sent — only interaction and outcome metadata.
+`nps_shown` / `_submitted` / `_dismissed`.
+
+**If you edit `analytics.js`:** browsers cache `<script src="...">` tags
+aggressively over plain HTTP, independent of the file's actual content. Bump
+the `?v=N` query string on its `<script>` tag in `index.html` alongside any
+edit, or changes may not take effect for existing visitors (or even in your
+own browser during local testing) until the cache expires.
 
 **NPS survey**: after the 1st, 4th, and 9th completed game (win, loss, draw,
 or quit — tracked in `localStorage['checkers-nps-state']`), the game-over
