@@ -229,11 +229,16 @@ quit flag), `hint_used`, `undo_used`, `difficulty_changed`, `sound_toggled`,
 `share_clicked` / `_completed` / `_dismissed` / `_failed`, and
 `nps_shown` / `_submitted` / `_dismissed`.
 
-**If you edit `analytics.js`:** browsers cache `<script src="...">` tags
-aggressively over plain HTTP, independent of the file's actual content. Bump
-the `?v=N` query string on its `<script>` tag in `index.html` alongside any
-edit, or changes may not take effect for existing visitors (or even in your
-own browser during local testing) until the cache expires.
+**If you edit `analytics.js`, `engine.js`, `ai.js`, `net.js`, or `ui.js`:**
+browsers cache `<script src="...">` tags aggressively over plain HTTP,
+independent of the file's actual content — GitHub Pages serves no
+cache-control headers we can override to change that. All five share one
+`?v=N` query string on their `<script>` tags in `index.html`; **bump it on
+every edit to any of them**, or changes may not take effect for existing
+visitors (or even your own browser during local testing) until the cache
+expires. This bit a real production fix once already — see the git history
+around the Share button's clipboard fallback for what "silently still
+running old code" actually looked like live.
 
 **NPS survey**: after the 1st, 4th, and 9th completed game (win, loss, draw,
 or quit — tracked in `localStorage['checkers-nps-state']`), the game-over
